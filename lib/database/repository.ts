@@ -1,4 +1,4 @@
-import type { AiReport, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, ApiUsage, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 export interface BusinessWithScore extends Business {
@@ -62,4 +62,7 @@ export interface AgencyRepository {
   saveDemo(demo: Omit<Demo, "id" | "created_at">): Promise<Demo>;
   getLatestDemoForBusiness(businessId: string): Promise<Demo | null>;
   listDemos(): Promise<Demo[]>;
+
+  addApiUsage(entry: Omit<ApiUsage, "id" | "owner_id" | "created_at">): Promise<ApiUsage>;
+  listApiUsage(): Promise<ApiUsage[]>;
 }

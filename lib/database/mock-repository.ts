@@ -1,7 +1,7 @@
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
 import { MOCK_SETTINGS, computeMockKpis } from "./mock-data";
 import { mockStore } from "./mock-store";
-import type { AiReport, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, ApiUsage, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -293,5 +293,15 @@ export class MockAgencyRepository implements AgencyRepository {
 
   async listDemos(): Promise<Demo[]> {
     return [...mockStore.demos];
+  }
+
+  async addApiUsage(entry: Omit<ApiUsage, "id" | "owner_id" | "created_at">): Promise<ApiUsage> {
+    const saved: ApiUsage = { ...entry, id: nextId("usage"), owner_id: "demo-owner", created_at: new Date().toISOString() };
+    mockStore.apiUsage.unshift(saved);
+    return saved;
+  }
+
+  async listApiUsage(): Promise<ApiUsage[]> {
+    return [...mockStore.apiUsage];
   }
 }

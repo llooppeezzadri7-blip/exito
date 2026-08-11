@@ -8,6 +8,25 @@ import { computeScores } from "@/lib/scoring/compute-scores";
 import { AnthropicAIProvider } from "@/lib/ai/provider";
 import { ProviderNotConfiguredError } from "@/lib/integrations/business-sources/types";
 import { generateDemo as buildDemo } from "@/backend/demo-generator/generate-demo";
+import { estimateAnthropicCostUsd } from "@/lib/costs/pricing";
+
+async function logAiUsage(
+  repo: AgencyRepository,
+  provider: AnthropicAIProvider,
+  businessId: string,
+  operation: "audit" | "proposal" | "demo_copy"
+) {
+  const usage = provider.getLastUsage();
+  if (!usage) return;
+  await repo.addApiUsage({
+    service: "anthropic",
+    operation,
+    business_id: businessId,
+    job_id: null,
+    units: usage.inputTokens + usage.outputTokens,
+    estimated_cost_usd: estimateAnthropicCostUsd(usage.model, usage.inputTokens, usage.outputTokens),
+  });
+}
 
 export interface AnalyzeState {
   error: string | null;
@@ -151,6 +170,7 @@ export async function generateProposal(businessId: string, _prevState: AnalyzeSt
       content: draft.content,
       status: "draft",
     });
+    await logAiUsage(repo, provider, businessId, "proposal");
   } catch (err) {
     if (err instanceof ProviderNotConfiguredError) return { error: err.message, ok: false };
     return { error: err instanceof Error ? err.message : "No se pudo generar la propuesta.", ok: false };
@@ -178,6 +198,7 @@ export async function generateDemo(businessId: string, _prevState: AnalyzeState)
       webflow_site_id: null,
       published_url: null,
     });
+    await logAiUsage(repo, provider, businessId, "demo_copy");
   } catch (err) {
     if (err instanceof ProviderNotConfiguredError) return { error: err.message, ok: false };
     return { error: err instanceof Error ? err.message : "No se pudo generar la demo.", ok: false };
@@ -199,6 +220,7 @@ export async function generateAiAudit(businessId: string, _prevState: AnalyzeSta
   try {
     const audit = await provider.generateAudit({ business, scan, score: business.score });
     await repo.saveAiReport(businessId, { ...audit, kind: "audit", model: "claude-sonnet-5" });
+    await logAiUsage(repo, provider, businessId, "audit");
   } catch (err) {
     if (err instanceof ProviderNotConfiguredError) return { error: err.message, ok: false };
     return { error: err instanceof Error ? err.message : "No se pudo generar la auditoría.", ok: false };

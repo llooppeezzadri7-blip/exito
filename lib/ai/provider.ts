@@ -100,11 +100,19 @@ export interface AIProvider {
   }): Promise<ProposalContent>;
   generateOutreachMessage(input: { business: Business; audit: AuditReport }): Promise<OutreachMessage>;
   generateDemoCopy(input: { business: Business }): Promise<DemoCopy>;
+  /** Token usage from the most recent generate* call, for cost tracking (§25). Null before any call. */
+  getLastUsage(): { model: string; inputTokens: number; outputTokens: number } | null;
 }
 
 export class AnthropicAIProvider implements AIProvider {
+  private lastUsage: { model: string; inputTokens: number; outputTokens: number } | null = null;
+
   get isActive() {
     return hasAnthropic;
+  }
+
+  getLastUsage() {
+    return this.lastUsage;
   }
 
   private client(): Anthropic {
@@ -127,6 +135,12 @@ export class AnthropicAIProvider implements AIProvider {
       system: params.system,
       messages: [{ role: "user", content: params.prompt }],
     });
+
+    this.lastUsage = {
+      model: params.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    };
 
     if (response.stop_reason === "refusal") {
       throw new Error("La generación fue rechazada por los filtros de seguridad del modelo.");

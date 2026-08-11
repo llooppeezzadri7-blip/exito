@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import type { AiReport, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, ApiUsage, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -506,5 +506,29 @@ export class SupabaseAgencyRepository implements AgencyRepository {
     const { data, error } = await this.supabase.from("demos").select("*").order("created_at", { ascending: false });
     if (error) throw error;
     return (data ?? []) as Demo[];
+  }
+
+  async addApiUsage(entry: Omit<ApiUsage, "id" | "owner_id" | "created_at">): Promise<ApiUsage> {
+    const { data, error } = await this.supabase
+      .from("api_usage")
+      .insert({
+        owner_id: this.ownerId,
+        service: entry.service,
+        operation: entry.operation,
+        business_id: entry.business_id,
+        job_id: entry.job_id,
+        units: entry.units,
+        estimated_cost_usd: entry.estimated_cost_usd,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as ApiUsage;
+  }
+
+  async listApiUsage(): Promise<ApiUsage[]> {
+    const { data, error } = await this.supabase.from("api_usage").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as ApiUsage[];
   }
 }
