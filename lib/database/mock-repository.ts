@@ -1,7 +1,7 @@
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
 import { MOCK_SETTINGS, computeMockKpis } from "./mock-data";
 import { mockStore } from "./mock-store";
-import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Settings, WebsiteScan } from "./types";
+import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -21,7 +21,11 @@ const LEAD_STAGES: LeadStage[] = [
 
 function withScore(businessId: string): BusinessWithScore {
   const business = mockStore.businesses.find((b) => b.id === businessId)!;
-  const score = mockStore.scores.find((s) => s.business_id === businessId) ?? null;
+  const scores = mockStore.scores.filter((s) => s.business_id === businessId);
+  const score =
+    scores.length > 0
+      ? scores.reduce((latest, s) => (new Date(s.computed_at) > new Date(latest.computed_at) ? s : latest))
+      : null;
   return { ...business, score };
 }
 
@@ -170,5 +174,11 @@ export class MockAgencyRepository implements AgencyRepository {
 
   async getLatestWebsiteScan(businessId: string): Promise<WebsiteScan | null> {
     return mockStore.websiteScans.find((s) => s.business_id === businessId) ?? null;
+  }
+
+  async saveScore(businessId: string, score: Omit<Score, "id" | "business_id" | "computed_at">): Promise<Score> {
+    const saved: Score = { ...score, id: nextId("score"), business_id: businessId, computed_at: new Date().toISOString() };
+    mockStore.scores.push(saved);
+    return saved;
   }
 }

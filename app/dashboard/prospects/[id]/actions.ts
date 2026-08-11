@@ -1,12 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getRepository } from "@/lib/database";
+import { getRepository, type AgencyRepository } from "@/lib/database";
+import type { Business } from "@/lib/database/types";
 import { scanWebsite } from "@/backend/scanner/scan-website";
+import { computeScores } from "@/lib/scoring/compute-scores";
 
 export interface AnalyzeState {
   error: string | null;
   ok: boolean;
+}
+
+async function recompute(repo: AgencyRepository, business: Business) {
+  const [scan, settings] = await Promise.all([repo.getLatestWebsiteScan(business.id), repo.getSettings()]);
+  const scoreData = computeScores({ business, scan, weights: settings.scoring_weights });
+  await repo.saveScore(business.id, scoreData);
 }
 
 export async function analyzeWebsite(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
@@ -53,6 +61,20 @@ export async function analyzeWebsite(businessId: string, _prevState: AnalyzeStat
     finished_at: new Date().toISOString(),
     result: { status: result.status },
   });
+
+  // The pipeline is scan -> score, always in sequence — see ARCHITECTURE.md §4.
+  await recompute(repo, business);
+
+  revalidatePath(`/dashboard/prospects/${businessId}`);
+  return { error: null, ok: true };
+}
+
+export async function recalculateScore(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  const repo = await getRepository();
+  const business = await repo.getBusiness(businessId);
+  if (!business) return { error: "Negocio no encontrado.", ok: false };
+
+  await recompute(repo, business);
 
   revalidatePath(`/dashboard/prospects/${businessId}`);
   return { error: null, ok: true };

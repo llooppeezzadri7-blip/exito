@@ -37,4 +37,6 @@ export interface AgencyRepository {
 
   saveWebsiteScan(scan: Omit<WebsiteScan, "id" | "scanned_at">): Promise<WebsiteScan>;
   getLatestWebsiteScan(businessId: string): Promise<WebsiteScan | null>;
+
+  saveScore(businessId: string, score: Omit<Score, "id" | "business_id" | "computed_at">): Promise<Score>;
 }

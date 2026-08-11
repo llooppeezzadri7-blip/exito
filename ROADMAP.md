@@ -9,7 +9,7 @@ Status legend: ✅ done · 🔄 in progress · ⏳ planned · ⛔ blocked (needs
 | 2 | Discovery/prospection: job creation UI, `BusinessSourceProvider` (CSV active, Places stubbed) | ⏳ |
 | 3 | Website analyzer: technical/SEO/CRO scanner, SSRF guard | ✅ (design/visual scoring still unavailable — needs rendering, not implemented) |
 | 4 | Local SEO analyzer (GBP signals) + competitor comparison | ⛔ needs `GOOGLE_PLACES_API_KEY` (same key as discovery) — abstraction ready, no data source yet |
-| 5 | Scoring engine: Opportunity / Buying Intent / Lead score, configurable weights UI | ⏳ |
+| 5 | Scoring engine: Opportunity / Buying Intent / Lead score | ✅ (weights editable in DB/settings; dedicated settings-page editor UI still pending) |
 | 6 | AI Audit generation (Claude) | ⛔ needs `ANTHROPIC_API_KEY` to run for real; UI/plumbing built against abstraction meanwhile |
 | 7 | CRM pipeline (lead stages, activities, follow-up) | ⏳ |
 | 8 | Proposal generator | ⛔ needs `ANTHROPIC_API_KEY` |

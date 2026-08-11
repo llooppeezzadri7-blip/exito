@@ -300,4 +300,23 @@ export class SupabaseAgencyRepository implements AgencyRepository {
     if (error) throw error;
     return (data as WebsiteScan) ?? null;
   }
+
+  async saveScore(businessId: string, score: Omit<Score, "id" | "business_id" | "computed_at">): Promise<Score> {
+    const { data, error } = await this.supabase
+      .from("scores")
+      .insert({
+        business_id: businessId,
+        opportunity_score: score.opportunity_score,
+        opportunity_breakdown: score.opportunity_breakdown,
+        buying_intent_score: score.buying_intent_score,
+        buying_intent_breakdown: score.buying_intent_breakdown,
+        lead_score: score.lead_score,
+        lead_score_breakdown: score.lead_score_breakdown,
+        weights_snapshot: score.weights_snapshot,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Score;
+  }
 }

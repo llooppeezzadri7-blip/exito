@@ -5,6 +5,7 @@ import { Badge, scoreBucket } from "@/components/ui/Badge";
 import { buttonVariants } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AnalyzeWebsiteButton } from "./AnalyzeWebsiteButton";
+import { RecalculateScoreButton } from "./RecalculateScoreButton";
 
 const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_score"; label: string }[] = [
   { key: "opportunity_score", label: "Opportunity Score" },
@@ -50,6 +51,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
         </div>
         <div className="flex gap-2">
           <AnalyzeWebsiteButton businessId={business.id} hasWebsite={Boolean(business.website_url)} />
+          <RecalculateScoreButton businessId={business.id} />
           <button className={buttonVariants({ variant: "secondary" })} disabled title="Disponible en la Fase 6">
             Generar auditoría IA
           </button>
