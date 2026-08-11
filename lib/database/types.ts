@@ -187,6 +187,20 @@ export interface WebsiteScan {
   scanned_at: string;
 }
 
+export interface AiReport {
+  id: string;
+  business_id: string;
+  kind: "audit";
+  summary: string;
+  problems: string[];
+  opportunities: string[];
+  commercial_impact: string;
+  recommendations: string[];
+  priorities: string[];
+  model: string;
+  generated_at: string;
+}
+
 export interface DashboardKpis {
   businesses_found: number;
   businesses_analyzed: number;

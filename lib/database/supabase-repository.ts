@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -318,5 +318,40 @@ export class SupabaseAgencyRepository implements AgencyRepository {
       .single();
     if (error) throw error;
     return data as Score;
+  }
+
+  async saveAiReport(
+    businessId: string,
+    report: Omit<AiReport, "id" | "business_id" | "generated_at">
+  ): Promise<AiReport> {
+    const { data, error } = await this.supabase
+      .from("ai_reports")
+      .insert({
+        business_id: businessId,
+        kind: report.kind,
+        summary: report.summary,
+        problems: report.problems,
+        opportunities: report.opportunities,
+        commercial_impact: report.commercial_impact,
+        recommendations: report.recommendations,
+        priorities: report.priorities,
+        model: report.model,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as AiReport;
+  }
+
+  async getLatestAiReport(businessId: string): Promise<AiReport | null> {
+    const { data, error } = await this.supabase
+      .from("ai_reports")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as AiReport) ?? null;
   }
 }

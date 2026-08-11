@@ -5,6 +5,8 @@ import { getRepository, type AgencyRepository } from "@/lib/database";
 import type { Business } from "@/lib/database/types";
 import { scanWebsite } from "@/backend/scanner/scan-website";
 import { computeScores } from "@/lib/scoring/compute-scores";
+import { AnthropicAIProvider } from "@/lib/ai/provider";
+import { ProviderNotConfiguredError } from "@/lib/integrations/business-sources/types";
 
 export interface AnalyzeState {
   error: string | null;
@@ -75,6 +77,26 @@ export async function recalculateScore(businessId: string, _prevState: AnalyzeSt
   if (!business) return { error: "Negocio no encontrado.", ok: false };
 
   await recompute(repo, business);
+
+  revalidatePath(`/dashboard/prospects/${businessId}`);
+  return { error: null, ok: true };
+}
+
+export async function generateAiAudit(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  const repo = await getRepository();
+  const business = await repo.getBusiness(businessId);
+  if (!business) return { error: "Negocio no encontrado.", ok: false };
+
+  const provider = new AnthropicAIProvider();
+  const scan = await repo.getLatestWebsiteScan(businessId);
+
+  try {
+    const audit = await provider.generateAudit({ business, scan, score: business.score });
+    await repo.saveAiReport(businessId, { ...audit, kind: "audit", model: "claude-sonnet-5" });
+  } catch (err) {
+    if (err instanceof ProviderNotConfiguredError) return { error: err.message, ok: false };
+    return { error: err instanceof Error ? err.message : "No se pudo generar la auditoría.", ok: false };
+  }
 
   revalidatePath(`/dashboard/prospects/${businessId}`);
   return { error: null, ok: true };

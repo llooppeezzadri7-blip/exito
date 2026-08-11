@@ -1,4 +1,4 @@
-import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 export interface BusinessWithScore extends Business {
@@ -39,4 +39,7 @@ export interface AgencyRepository {
   getLatestWebsiteScan(businessId: string): Promise<WebsiteScan | null>;
 
   saveScore(businessId: string, score: Omit<Score, "id" | "business_id" | "computed_at">): Promise<Score>;
+
+  saveAiReport(businessId: string, report: Omit<AiReport, "id" | "business_id" | "generated_at">): Promise<AiReport>;
+  getLatestAiReport(businessId: string): Promise<AiReport | null>;
 }

@@ -10,10 +10,10 @@ Status legend: ✅ done · 🔄 in progress · ⏳ planned · ⛔ blocked (needs
 | 3 | Website analyzer: technical/SEO/CRO scanner, SSRF guard | ✅ (design/visual scoring still unavailable — needs rendering, not implemented) |
 | 4 | Local SEO analyzer (GBP signals) + competitor comparison | ⛔ needs `GOOGLE_PLACES_API_KEY` (same key as discovery) — abstraction ready, no data source yet |
 | 5 | Scoring engine: Opportunity / Buying Intent / Lead score | ✅ (weights editable in DB/settings; dedicated settings-page editor UI still pending) |
-| 6 | AI Audit generation (Claude) | ⛔ needs `ANTHROPIC_API_KEY` to run for real; UI/plumbing built against abstraction meanwhile |
-| 7 | CRM pipeline (lead stages, activities, follow-up) | ⏳ |
-| 8 | Proposal generator | ⛔ needs `ANTHROPIC_API_KEY` |
-| 9 | Demo generator (uses real business data only) | ⛔ needs `ANTHROPIC_API_KEY`, optionally Webflow |
+| 6 | AI Audit generation (Claude) | ✅ code complete (lib/ai/provider.ts, structured JSON output, no-hallucination system prompt) — ⛔ inactive at runtime until `ANTHROPIC_API_KEY` is set |
+| 7 | CRM pipeline (lead stages, activities, follow-up) | 🔄 read-only Kanban board built (Phase 1); stage transitions/activities not yet wired |
+| 8 | Proposal generator | 🔄 `AnthropicAIProvider.generateProposal` implemented; no UI wiring yet |
+| 9 | Demo generator (uses real business data only) | ⏳ not started |
 | 10 | WebflowService (app-driven) + docs on MCP-driven demo editing | ⛔ needs `WEBFLOW_API_TOKEN` for app-driven path; MCP path already usable interactively |
 | 11 | Automations (n8n) | ⏳ optional, only if it adds value per §37 |
 | 12 | Analytics + cost tracking (`api_usage`, cost-per-lead, ROI) | ⏳ |

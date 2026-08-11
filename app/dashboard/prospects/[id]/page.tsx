@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AnalyzeWebsiteButton } from "./AnalyzeWebsiteButton";
 import { RecalculateScoreButton } from "./RecalculateScoreButton";
+import { GenerateAuditButton } from "./GenerateAuditButton";
 
 const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_score"; label: string }[] = [
   { key: "opportunity_score", label: "Opportunity Score" },
@@ -32,6 +33,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
 
   const score = business.score;
   const scan = await repo.getLatestWebsiteScan(id);
+  const audit = await repo.getLatestAiReport(id);
 
   return (
     <div className="space-y-6">
@@ -52,9 +54,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
         <div className="flex gap-2">
           <AnalyzeWebsiteButton businessId={business.id} hasWebsite={Boolean(business.website_url)} />
           <RecalculateScoreButton businessId={business.id} />
-          <button className={buttonVariants({ variant: "secondary" })} disabled title="Disponible en la Fase 6">
-            Generar auditoría IA
-          </button>
+          <GenerateAuditButton businessId={business.id} />
           <button className={buttonVariants({ variant: "secondary" })} disabled title="Disponible en la Fase 8">
             Generar propuesta
           </button>
@@ -154,13 +154,29 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
 
       <Card>
         <CardHeader>
-          <CardTitle>Problemas y oportunidades</CardTitle>
+          <CardTitle>Auditoría IA</CardTitle>
+          {audit && <span className="text-xs text-text-muted">{new Date(audit.generated_at).toLocaleString("es-ES")}</span>}
         </CardHeader>
         <CardContent>
-          <EmptyState
-            title="Todavía no hay una auditoría IA generada"
-            description="La auditoría (Fase 6) convertirá los datos técnicos del escaneo en problemas y oportunidades priorizados, redactados por Claude a partir de datos reales — nunca inventados."
-          />
+          {!audit ? (
+            <EmptyState
+              title="Todavía no hay una auditoría IA generada"
+              description='Pulsa "Generar auditoría IA" para convertir los datos técnicos del escaneo en problemas y oportunidades priorizados, redactados por Claude a partir de datos reales — nunca inventados. Requiere ANTHROPIC_API_KEY configurada.'
+            />
+          ) : (
+            <div className="space-y-5 text-sm">
+              <p className="text-text-secondary">{audit.summary}</p>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <AuditList title="Problemas detectados" items={audit.problems} tone="critical" />
+                <AuditList title="Oportunidades" items={audit.opportunities} tone="good" />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-text-secondary">Impacto comercial</p>
+                <p className="text-text-secondary">{audit.commercial_impact}</p>
+              </div>
+              <AuditList title="Recomendaciones (por prioridad)" items={audit.priorities} tone="accent" />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -172,6 +188,23 @@ function Row({ label, value }: { label: string; value: string | null | undefined
     <div className="flex justify-between gap-3 border-b border-border-hairline py-1.5 last:border-0">
       <span className="text-text-muted">{label}</span>
       <span className="text-right text-text-primary">{value || "—"}</span>
+    </div>
+  );
+}
+
+function AuditList({ title, items, tone }: { title: string; items: string[]; tone: "critical" | "good" | "accent" }) {
+  const dotClass = { critical: "bg-status-critical", good: "bg-status-good", accent: "bg-accent-450" }[tone];
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold text-text-secondary">{title}</p>
+      <ul className="space-y-1.5">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-2">
+            <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} />
+            <span className="text-text-secondary">{item}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
