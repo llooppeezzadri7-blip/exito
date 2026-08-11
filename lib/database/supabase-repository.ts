@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import type { DashboardKpis, Job, Lead, LeadStage, Score, Settings } from "./types";
+import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings } from "./types";
+import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
   "NEW",
@@ -157,5 +158,83 @@ export class SupabaseAgencyRepository implements AgencyRepository {
       .single();
     if (error) throw error;
     return data as Settings;
+  }
+
+  async createJob(input: { type: JobType; params: Record<string, unknown>; progressTotal?: number }): Promise<Job> {
+    const { data, error } = await this.supabase
+      .from("jobs")
+      .insert({
+        owner_id: this.ownerId,
+        type: input.type,
+        status: "QUEUED",
+        params: input.params,
+        progress_total: input.progressTotal ?? 0,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Job;
+  }
+
+  async updateJob(id: string, patch: Partial<Job>): Promise<Job> {
+    const { data, error } = await this.supabase.from("jobs").update(patch).eq("id", id).select("*").single();
+    if (error) throw error;
+    return data as Job;
+  }
+
+  async importBusinesses(
+    records: RawBusinessRecord[],
+    jobId: string | null
+  ): Promise<{ inserted: Business[]; duplicates: number }> {
+    if (records.length === 0) return { inserted: [], duplicates: 0 };
+
+    // Duplicate check against gbp_place_id (DB-enforced) and, for records
+    // without one, an in-request name+address check — a full cross-table
+    // fuzzy dedupe is future work, not needed for the CSV MVP.
+    const placeIds = records.map((r) => r.gbp_place_id).filter((id): id is string => Boolean(id));
+    const existingPlaceIds = new Set<string>();
+    if (placeIds.length > 0) {
+      const { data: existing, error } = await this.supabase
+        .from("businesses")
+        .select("gbp_place_id")
+        .in("gbp_place_id", placeIds);
+      if (error) throw error;
+      for (const row of existing ?? []) if (row.gbp_place_id) existingPlaceIds.add(row.gbp_place_id);
+    }
+
+    const toInsert = records.filter((r) => !r.gbp_place_id || !existingPlaceIds.has(r.gbp_place_id));
+    const duplicates = records.length - toInsert.length;
+
+    if (toInsert.length === 0) return { inserted: [], duplicates };
+
+    const { data, error } = await this.supabase
+      .from("businesses")
+      .insert(
+        toInsert.map((r) => ({
+          owner_id: this.ownerId,
+          name: r.name,
+          category: r.category ?? null,
+          sector: r.sector ?? null,
+          address: r.address ?? null,
+          city: r.city ?? null,
+          region: r.region ?? null,
+          postal_code: r.postal_code ?? null,
+          country: r.country ?? null,
+          phone: r.phone ?? null,
+          website_url: r.website_url ?? null,
+          email: r.email ?? null,
+          gbp_place_id: r.gbp_place_id ?? null,
+          rating: r.rating ?? null,
+          review_count: r.review_count ?? null,
+          latitude: r.latitude ?? null,
+          longitude: r.longitude ?? null,
+          source: r.source,
+          source_job_id: jobId,
+        }))
+      )
+      .select("*");
+    if (error) throw error;
+
+    return { inserted: (data ?? []) as Business[], duplicates };
   }
 }

@@ -1,0 +1,20 @@
+import { MOCK_BUSINESSES, MOCK_JOBS, MOCK_LEADS, MOCK_SCORES } from "./mock-data";
+import type { Business, Job, Lead, Score } from "./types";
+
+/**
+ * Mutable, process-local copy of the fixtures — lets the mock provider
+ * actually accept CSV imports / job creation during a dev session (resets
+ * on server restart, since there's no real database behind it). Real
+ * persistence is the Supabase provider's job.
+ */
+class MockStore {
+  businesses: Business[] = [...MOCK_BUSINESSES];
+  scores: Score[] = [...MOCK_SCORES];
+  leads: Lead[] = [...MOCK_LEADS];
+  jobs: Job[] = [...MOCK_JOBS];
+}
+
+const globalForMockStore = globalThis as unknown as { __mockStore?: MockStore };
+
+export const mockStore = globalForMockStore.__mockStore ?? new MockStore();
+globalForMockStore.__mockStore = mockStore;

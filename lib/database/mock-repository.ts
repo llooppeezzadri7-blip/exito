@@ -1,13 +1,8 @@
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import {
-  MOCK_BUSINESSES,
-  MOCK_JOBS,
-  MOCK_LEADS,
-  MOCK_SCORES,
-  MOCK_SETTINGS,
-  computeMockKpis,
-} from "./mock-data";
-import type { DashboardKpis, Job, Lead, LeadStage, Settings } from "./types";
+import { MOCK_SETTINGS, computeMockKpis } from "./mock-data";
+import { mockStore } from "./mock-store";
+import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Settings } from "./types";
+import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
   "NEW",
@@ -25,9 +20,15 @@ const LEAD_STAGES: LeadStage[] = [
 ];
 
 function withScore(businessId: string): BusinessWithScore {
-  const business = MOCK_BUSINESSES.find((b) => b.id === businessId)!;
-  const score = MOCK_SCORES.find((s) => s.business_id === businessId) ?? null;
+  const business = mockStore.businesses.find((b) => b.id === businessId)!;
+  const score = mockStore.scores.find((s) => s.business_id === businessId) ?? null;
   return { ...business, score };
+}
+
+let idCounter = 0;
+function nextId(prefix: string) {
+  idCounter += 1;
+  return `${prefix}-mock-${Date.now()}-${idCounter}`;
 }
 
 export class MockAgencyRepository implements AgencyRepository {
@@ -36,7 +37,7 @@ export class MockAgencyRepository implements AgencyRepository {
   }
 
   async listBusinesses(filters?: BusinessListFilters): Promise<BusinessWithScore[]> {
-    let items = MOCK_BUSINESSES.map((b) => withScore(b.id));
+    let items = mockStore.businesses.map((b) => withScore(b.id));
 
     if (filters?.sector) items = items.filter((b) => b.sector === filters.sector);
     if (filters?.city) items = items.filter((b) => b.city === filters.city);
@@ -52,12 +53,12 @@ export class MockAgencyRepository implements AgencyRepository {
   }
 
   async getBusiness(id: string): Promise<BusinessWithScore | null> {
-    const business = MOCK_BUSINESSES.find((b) => b.id === id);
+    const business = mockStore.businesses.find((b) => b.id === id);
     return business ? withScore(id) : null;
   }
 
   async listRecentJobs(limit = 10): Promise<Job[]> {
-    return [...MOCK_JOBS]
+    return [...mockStore.jobs]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, limit);
   }
@@ -67,11 +68,93 @@ export class MockAgencyRepository implements AgencyRepository {
       LeadStage,
       Lead[]
     >;
-    for (const l of MOCK_LEADS) result[l.stage].push(l);
+    for (const l of mockStore.leads) result[l.stage].push(l);
     return result;
   }
 
   async getSettings(): Promise<Settings> {
     return MOCK_SETTINGS;
+  }
+
+  async createJob(input: { type: JobType; params: Record<string, unknown>; progressTotal?: number }): Promise<Job> {
+    const job: Job = {
+      id: nextId("job"),
+      owner_id: "demo-owner",
+      type: input.type,
+      status: "QUEUED",
+      params: input.params,
+      progress_current: 0,
+      progress_total: input.progressTotal ?? 0,
+      result: null,
+      error: null,
+      retry_count: 0,
+      max_retries: 3,
+      business_id: null,
+      created_at: new Date().toISOString(),
+      started_at: null,
+      finished_at: null,
+    };
+    mockStore.jobs.unshift(job);
+    return job;
+  }
+
+  async updateJob(id: string, patch: Partial<Job>): Promise<Job> {
+    const job = mockStore.jobs.find((j) => j.id === id);
+    if (!job) throw new Error(`Job ${id} not found`);
+    Object.assign(job, patch);
+    return job;
+  }
+
+  async importBusinesses(
+    records: RawBusinessRecord[],
+    jobId: string | null
+  ): Promise<{ inserted: Business[]; duplicates: number }> {
+    const inserted: Business[] = [];
+    let duplicates = 0;
+
+    for (const record of records) {
+      const isDuplicate = mockStore.businesses.some(
+        (b) =>
+          (record.gbp_place_id && b.gbp_place_id === record.gbp_place_id) ||
+          (b.name.toLowerCase() === record.name.toLowerCase() && b.address === (record.address ?? null))
+      );
+      if (isDuplicate) {
+        duplicates += 1;
+        continue;
+      }
+
+      const now = new Date().toISOString();
+      const business: Business = {
+        id: nextId("biz"),
+        owner_id: "demo-owner",
+        name: record.name,
+        category: record.category ?? null,
+        sector: record.sector ?? null,
+        address: record.address ?? null,
+        city: record.city ?? null,
+        region: record.region ?? null,
+        postal_code: record.postal_code ?? null,
+        country: record.country ?? null,
+        phone: record.phone ?? null,
+        website_url: record.website_url ?? null,
+        email: record.email ?? null,
+        social_links: {},
+        gbp_place_id: record.gbp_place_id ?? null,
+        rating: record.rating ?? null,
+        review_count: record.review_count ?? null,
+        opening_hours: null,
+        latitude: record.latitude ?? null,
+        longitude: record.longitude ?? null,
+        source: record.source,
+        source_job_id: jobId,
+        last_analyzed_at: null,
+        created_at: now,
+        updated_at: now,
+      };
+      mockStore.businesses.push(business);
+      inserted.push(business);
+    }
+
+    return { inserted, duplicates };
   }
 }

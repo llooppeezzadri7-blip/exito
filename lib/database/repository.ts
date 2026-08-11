@@ -1,4 +1,5 @@
-import type { Business, DashboardKpis, Job, Lead, LeadStage, Score, Settings } from "./types";
+import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings } from "./types";
+import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 export interface BusinessWithScore extends Business {
   score: Score | null;
@@ -24,4 +25,13 @@ export interface AgencyRepository {
   listRecentJobs(limit?: number): Promise<Job[]>;
   listLeadsByStage(): Promise<Record<LeadStage, Lead[]>>;
   getSettings(): Promise<Settings>;
+
+  createJob(input: { type: JobType; params: Record<string, unknown>; progressTotal?: number }): Promise<Job>;
+  updateJob(id: string, patch: Partial<Pick<Job, "status" | "progress_current" | "progress_total" | "result" | "error" | "started_at" | "finished_at" | "retry_count">>): Promise<Job>;
+
+  /** Inserts new businesses, skipping ones that already exist (matched by gbp_place_id when present). */
+  importBusinesses(
+    records: RawBusinessRecord[],
+    jobId: string | null
+  ): Promise<{ inserted: Business[]; duplicates: number }>;
 }
