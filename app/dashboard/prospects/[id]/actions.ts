@@ -9,6 +9,7 @@ import { AnthropicAIProvider } from "@/lib/ai/provider";
 import { ProviderNotConfiguredError } from "@/lib/integrations/business-sources/types";
 import { generateDemo as buildDemo } from "@/backend/demo-generator/generate-demo";
 import { estimateAnthropicCostUsd } from "@/lib/costs/pricing";
+import { checkRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 async function logAiUsage(
   repo: AgencyRepository,
@@ -40,6 +41,13 @@ async function recompute(repo: AgencyRepository, business: Business) {
 }
 
 export async function analyzeWebsite(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  try {
+    checkRateLimit(`scan:${businessId}`, 5, 60_000);
+  } catch (err) {
+    if (err instanceof RateLimitError) return { error: err.message, ok: false };
+    throw err;
+  }
+
   const repo = await getRepository();
   const business = await repo.getBusiness(businessId);
 
@@ -138,7 +146,20 @@ export async function updateLeadFollowUp(leadId: string, formData: FormData): Pr
   revalidatePath("/dashboard/pipeline");
 }
 
+function rateLimitOrNull(key: string, limit: number, windowMs: number): AnalyzeState | null {
+  try {
+    checkRateLimit(key, limit, windowMs);
+    return null;
+  } catch (err) {
+    if (err instanceof RateLimitError) return { error: err.message, ok: false };
+    throw err;
+  }
+}
+
 export async function generateProposal(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  const limited = rateLimitOrNull(`ai:proposal:${businessId}`, 3, 60_000);
+  if (limited) return limited;
+
   const repo = await getRepository();
   const [business, audit, settings] = await Promise.all([
     repo.getBusiness(businessId),
@@ -182,6 +203,9 @@ export async function generateProposal(businessId: string, _prevState: AnalyzeSt
 }
 
 export async function generateDemo(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  const limited = rateLimitOrNull(`ai:demo:${businessId}`, 3, 60_000);
+  if (limited) return limited;
+
   const repo = await getRepository();
   const business = await repo.getBusiness(businessId);
   if (!business) return { error: "Negocio no encontrado.", ok: false };
@@ -210,6 +234,9 @@ export async function generateDemo(businessId: string, _prevState: AnalyzeState)
 }
 
 export async function generateAiAudit(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  const limited = rateLimitOrNull(`ai:audit:${businessId}`, 3, 60_000);
+  if (limited) return limited;
+
   const repo = await getRepository();
   const business = await repo.getBusiness(businessId);
   if (!business) return { error: "Negocio no encontrado.", ok: false };

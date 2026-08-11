@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getRepository } from "@/lib/database";
 import { CsvBusinessSourceProvider } from "@/lib/integrations/business-sources";
 import { CSV_IMPORT_LIMITS } from "@/lib/security/limits";
+import { checkRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 export interface ImportCsvState {
   error: string | null;
@@ -11,6 +12,13 @@ export interface ImportCsvState {
 }
 
 export async function importCsv(_prevState: ImportCsvState, formData: FormData): Promise<ImportCsvState> {
+  try {
+    checkRateLimit("discovery:csv_import", 5, 60_000);
+  } catch (err) {
+    if (err instanceof RateLimitError) return { error: err.message, summary: null };
+    throw err;
+  }
+
   const file = formData.get("csv_file");
 
   if (!(file instanceof File) || file.size === 0) {
