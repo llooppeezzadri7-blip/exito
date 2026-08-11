@@ -23,7 +23,16 @@ const envSchema = z.object({
   DATA_PROVIDER: z.enum(["mock", "supabase"]).optional(),
 });
 
-const parsed = envSchema.safeParse(process.env);
+// .env files (and .env.example, which people copy to .env.local) commonly
+// leave optional vars blank rather than omitting the line entirely — that
+// lands in process.env as "", not undefined, which fails `.url().optional()`
+// validation below and would otherwise crash the whole app instead of
+// degrading gracefully as documented. Treat blank as unset.
+const envWithBlanksAsUnset = Object.fromEntries(
+  Object.entries(process.env).map(([key, value]) => [key, value === "" ? undefined : value])
+);
+
+const parsed = envSchema.safeParse(envWithBlanksAsUnset);
 
 if (!parsed.success) {
   // Only truly malformed values (e.g. an invalid URL) land here — everything

@@ -47,6 +47,7 @@ npm run start    # serve the production build
 npm run lint      # ESLint (next lint was removed in Next.js 16)
 npx tsc --noEmit  # type-check
 npm test          # Vitest unit tests
+npm run test:e2e  # Playwright e2e smoke suite (builds + starts the app, runs against mock data)
 ```
 
 ## Deploying
