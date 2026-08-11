@@ -1,0 +1,37 @@
+# ROADMAP.md
+
+Status legend: ✅ done · 🔄 in progress · ⏳ planned · ⛔ blocked (needs credentials/decision)
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Repo audit, stack decision, ARCHITECTURE.md, ROADMAP.md | ✅ |
+| 1 | DB schema, Supabase Auth wiring, repository abstraction (mock + supabase), dashboard shell w/ KPIs | 🔄 |
+| 2 | Discovery/prospection: job creation UI, `BusinessSourceProvider` (CSV active, Places stubbed) | ⏳ |
+| 3 | Website analyzer: technical/SEO/CRO/design scanner, SSRF guard | ⏳ |
+| 4 | Local SEO analyzer (GBP signals) + competitor comparison | ⏳ |
+| 5 | Scoring engine: Opportunity / Buying Intent / Lead score, configurable weights UI | ⏳ |
+| 6 | AI Audit generation (Claude) | ⛔ needs `ANTHROPIC_API_KEY` to run for real; UI/plumbing built against abstraction meanwhile |
+| 7 | CRM pipeline (lead stages, activities, follow-up) | ⏳ |
+| 8 | Proposal generator | ⛔ needs `ANTHROPIC_API_KEY` |
+| 9 | Demo generator (uses real business data only) | ⛔ needs `ANTHROPIC_API_KEY`, optionally Webflow |
+| 10 | WebflowService (app-driven) + docs on MCP-driven demo editing | ⛔ needs `WEBFLOW_API_TOKEN` for app-driven path; MCP path already usable interactively |
+| 11 | Automations (n8n) | ⏳ optional, only if it adds value per §37 |
+| 12 | Analytics + cost tracking (`api_usage`, cost-per-lead, ROI) | ⏳ |
+| 13 | Security hardening, test suite, production readiness docs | ⏳ ongoing throughout, formalized at the end |
+
+## Key decisions log
+
+- **2026-08-11** — Business discovery MVP uses CSV/Excel import as the active data source;
+  Google Places API (New) connector is implemented but left inactive until the user
+  provisions Google Cloud billing and provides `GOOGLE_PLACES_API_KEY`. Rationale: avoid
+  incurring real per-request costs (~$32/1000 Text Search requests) without explicit opt-in.
+- **2026-08-11** — Project created fresh at `~/ai-digital-agency-os` (home directory was not
+  a git repo; an unrelated pre-existing project `~/xtrem` was left untouched).
+- **2026-08-11** — Next.js 16 confirmed via bundled docs (`node_modules/next/dist/docs`):
+  using `proxy.ts` instead of `middleware.ts`, async `params`/`searchParams`, ESLint CLI
+  instead of removed `next lint`.
+
+## Next up
+
+Finish Phase 1 (schema + auth + dashboard shell with mock data), verified with
+`npm run build`, `npm run lint`, `npx tsc --noEmit`, and a manual dev-server smoke check.
