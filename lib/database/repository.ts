@@ -1,4 +1,4 @@
-import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 export interface BusinessWithScore extends Business {
@@ -42,4 +42,16 @@ export interface AgencyRepository {
 
   saveAiReport(businessId: string, report: Omit<AiReport, "id" | "business_id" | "generated_at">): Promise<AiReport>;
   getLatestAiReport(businessId: string): Promise<AiReport | null>;
+
+  getLeadForBusiness(businessId: string): Promise<Lead | null>;
+  createLead(businessId: string, valueEstimate?: number | null): Promise<Lead>;
+  updateLead(
+    leadId: string,
+    patch: Partial<Pick<Lead, "stage" | "next_action" | "next_action_date" | "notes" | "value_estimate" | "value_won">>
+  ): Promise<Lead>;
+  addLeadActivity(
+    leadId: string,
+    activity: { type: LeadActivityType; description: string; metadata?: Record<string, unknown> }
+  ): Promise<LeadActivity>;
+  listLeadActivities(leadId: string): Promise<LeadActivity[]>;
 }

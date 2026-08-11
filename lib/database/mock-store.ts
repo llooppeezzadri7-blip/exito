@@ -1,5 +1,5 @@
 import { MOCK_BUSINESSES, MOCK_JOBS, MOCK_LEADS, MOCK_SCORES } from "./mock-data";
-import type { AiReport, Business, Job, Lead, Score, WebsiteScan } from "./types";
+import type { AiReport, Business, Job, Lead, LeadActivity, Score, WebsiteScan } from "./types";
 
 /**
  * Mutable, process-local copy of the fixtures — lets the mock provider
@@ -14,6 +14,7 @@ class MockStore {
   jobs: Job[] = [...MOCK_JOBS];
   websiteScans: WebsiteScan[] = [];
   aiReports: AiReport[] = [];
+  leadActivities: LeadActivity[] = [];
 }
 
 const globalForMockStore = globalThis as unknown as { __mockStore?: MockStore };

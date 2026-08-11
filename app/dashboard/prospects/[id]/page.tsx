@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { AnalyzeWebsiteButton } from "./AnalyzeWebsiteButton";
 import { RecalculateScoreButton } from "./RecalculateScoreButton";
 import { GenerateAuditButton } from "./GenerateAuditButton";
+import { PipelineCard } from "./PipelineCard";
 
 const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_score"; label: string }[] = [
   { key: "opportunity_score", label: "Opportunity Score" },
@@ -34,6 +35,8 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
   const score = business.score;
   const scan = await repo.getLatestWebsiteScan(id);
   const audit = await repo.getLatestAiReport(id);
+  const lead = await repo.getLeadForBusiness(id);
+  const activities = lead ? await repo.listLeadActivities(lead.id) : [];
 
   return (
     <div className="space-y-6">
@@ -119,6 +122,15 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pipeline</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PipelineCard businessId={business.id} lead={lead} activities={activities} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -1,7 +1,7 @@
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
 import { MOCK_SETTINGS, computeMockKpis } from "./mock-data";
 import { mockStore } from "./mock-store";
-import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -198,5 +198,72 @@ export class MockAgencyRepository implements AgencyRepository {
 
   async getLatestAiReport(businessId: string): Promise<AiReport | null> {
     return mockStore.aiReports.find((r) => r.business_id === businessId) ?? null;
+  }
+
+  async getLeadForBusiness(businessId: string): Promise<Lead | null> {
+    return mockStore.leads.find((l) => l.business_id === businessId) ?? null;
+  }
+
+  async createLead(businessId: string, valueEstimate: number | null = null): Promise<Lead> {
+    const existing = await this.getLeadForBusiness(businessId);
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const lead: Lead = {
+      id: nextId("lead"),
+      business_id: businessId,
+      owner_id: "demo-owner",
+      stage: "NEW",
+      value_estimate: valueEstimate,
+      value_won: null,
+      next_action: null,
+      next_action_date: null,
+      notes: null,
+      created_at: now,
+      updated_at: now,
+    };
+    mockStore.leads.push(lead);
+    return lead;
+  }
+
+  async updateLead(
+    leadId: string,
+    patch: Partial<Pick<Lead, "stage" | "next_action" | "next_action_date" | "notes" | "value_estimate" | "value_won">>
+  ): Promise<Lead> {
+    const lead = mockStore.leads.find((l) => l.id === leadId);
+    if (!lead) throw new Error(`Lead ${leadId} not found`);
+
+    const previousStage = lead.stage;
+    Object.assign(lead, patch, { updated_at: new Date().toISOString() });
+
+    if (patch.stage && patch.stage !== previousStage) {
+      await this.addLeadActivity(leadId, {
+        type: "stage_change",
+        description: `Etapa cambiada de ${previousStage} a ${patch.stage}`,
+        metadata: { from: previousStage, to: patch.stage },
+      });
+    }
+
+    return lead;
+  }
+
+  async addLeadActivity(
+    leadId: string,
+    activity: { type: LeadActivityType; description: string; metadata?: Record<string, unknown> }
+  ): Promise<LeadActivity> {
+    const saved: LeadActivity = {
+      id: nextId("activity"),
+      lead_id: leadId,
+      type: activity.type,
+      description: activity.description,
+      metadata: activity.metadata ?? {},
+      created_at: new Date().toISOString(),
+    };
+    mockStore.leadActivities.unshift(saved);
+    return saved;
+  }
+
+  async listLeadActivities(leadId: string): Promise<LeadActivity[]> {
+    return mockStore.leadActivities.filter((a) => a.lead_id === leadId);
   }
 }

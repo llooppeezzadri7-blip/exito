@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepository, type AgencyRepository } from "@/lib/database";
-import type { Business } from "@/lib/database/types";
+import type { Business, LeadStage } from "@/lib/database/types";
 import { scanWebsite } from "@/backend/scanner/scan-website";
 import { computeScores } from "@/lib/scoring/compute-scores";
 import { AnthropicAIProvider } from "@/lib/ai/provider";
@@ -80,6 +80,42 @@ export async function recalculateScore(businessId: string, _prevState: AnalyzeSt
 
   revalidatePath(`/dashboard/prospects/${businessId}`);
   return { error: null, ok: true };
+}
+
+export async function addToPipeline(businessId: string): Promise<void> {
+  const repo = await getRepository();
+  const business = await repo.getBusiness(businessId);
+  await repo.createLead(businessId, business?.score?.lead_score ?? null);
+  revalidatePath(`/dashboard/prospects/${businessId}`);
+  revalidatePath("/dashboard/pipeline");
+}
+
+export async function changeLeadStage(leadId: string, stage: LeadStage, redirectPath: string): Promise<void> {
+  const repo = await getRepository();
+  await repo.updateLead(leadId, { stage });
+  revalidatePath(redirectPath);
+  revalidatePath("/dashboard/pipeline");
+}
+
+export async function updateLeadFollowUp(leadId: string, formData: FormData): Promise<void> {
+  const repo = await getRepository();
+  const nextAction = String(formData.get("next_action") ?? "").trim();
+  const nextActionDate = String(formData.get("next_action_date") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  await repo.updateLead(leadId, {
+    next_action: nextAction || null,
+    next_action_date: nextActionDate || null,
+    notes: notes || null,
+  });
+
+  if (nextAction) {
+    await repo.addLeadActivity(leadId, { type: "note", description: `Próxima acción: ${nextAction}${nextActionDate ? ` (${nextActionDate})` : ""}` });
+  }
+
+  const businessId = formData.get("business_id");
+  if (typeof businessId === "string") revalidatePath(`/dashboard/prospects/${businessId}`);
+  revalidatePath("/dashboard/pipeline");
 }
 
 export async function generateAiAudit(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {

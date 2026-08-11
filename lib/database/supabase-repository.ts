@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -353,5 +353,83 @@ export class SupabaseAgencyRepository implements AgencyRepository {
       .maybeSingle();
     if (error) throw error;
     return (data as AiReport) ?? null;
+  }
+
+  async getLeadForBusiness(businessId: string): Promise<Lead | null> {
+    const { data, error } = await this.supabase
+      .from("leads")
+      .select("*")
+      .eq("business_id", businessId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as Lead) ?? null;
+  }
+
+  async createLead(businessId: string, valueEstimate: number | null = null): Promise<Lead> {
+    const existing = await this.getLeadForBusiness(businessId);
+    if (existing) return existing;
+
+    const { data, error } = await this.supabase
+      .from("leads")
+      .insert({ business_id: businessId, owner_id: this.ownerId, stage: "NEW", value_estimate: valueEstimate })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Lead;
+  }
+
+  async updateLead(
+    leadId: string,
+    patch: Partial<Pick<Lead, "stage" | "next_action" | "next_action_date" | "notes" | "value_estimate" | "value_won">>
+  ): Promise<Lead> {
+    const { data: current, error: fetchError } = await this.supabase
+      .from("leads")
+      .select("stage")
+      .eq("id", leadId)
+      .single();
+    if (fetchError) throw fetchError;
+    const previousStage = current.stage as LeadStage;
+
+    const { data, error } = await this.supabase.from("leads").update(patch).eq("id", leadId).select("*").single();
+    if (error) throw error;
+
+    if (patch.stage && patch.stage !== previousStage) {
+      await this.addLeadActivity(leadId, {
+        type: "stage_change",
+        description: `Etapa cambiada de ${previousStage} a ${patch.stage}`,
+        metadata: { from: previousStage, to: patch.stage },
+      });
+    }
+
+    return data as Lead;
+  }
+
+  async addLeadActivity(
+    leadId: string,
+    activity: { type: LeadActivityType; description: string; metadata?: Record<string, unknown> }
+  ): Promise<LeadActivity> {
+    const { data, error } = await this.supabase
+      .from("lead_activities")
+      .insert({
+        lead_id: leadId,
+        owner_id: this.ownerId,
+        type: activity.type,
+        description: activity.description,
+        metadata: activity.metadata ?? {},
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as LeadActivity;
+  }
+
+  async listLeadActivities(leadId: string): Promise<LeadActivity[]> {
+    const { data, error } = await this.supabase
+      .from("lead_activities")
+      .select("*")
+      .eq("lead_id", leadId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as LeadActivity[];
   }
 }

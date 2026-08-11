@@ -187,6 +187,17 @@ export interface WebsiteScan {
   scanned_at: string;
 }
 
+export type LeadActivityType = "stage_change" | "note" | "call" | "email" | "meeting" | "whatsapp";
+
+export interface LeadActivity {
+  id: string;
+  lead_id: string;
+  type: LeadActivityType;
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface AiReport {
   id: string;
   business_id: string;

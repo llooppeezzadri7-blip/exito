@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRepository } from "@/lib/database";
 import type { LeadStage } from "@/lib/database/types";
 import { formatCurrencyEUR } from "@/lib/utils/format";
+import { LeadStageSelect } from "@/components/dashboard/LeadStageSelect";
 
 const STAGE_LABELS: Record<LeadStage, string> = {
   NEW: "Nuevo",
@@ -42,7 +43,7 @@ export default async function PipelinePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Pipeline comercial</h1>
-        <p className="text-sm text-text-secondary">CRM interno — arrastra leads entre etapas (próximamente).</p>
+        <p className="text-sm text-text-secondary">CRM interno — cambia la etapa de cada lead con el selector.</p>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4">
@@ -62,12 +63,13 @@ export default async function PipelinePage() {
                 {leads.map((lead) => {
                   const business = businessById.get(lead.business_id);
                   return (
-                    <Link
+                    <div
                       key={lead.id}
-                      href={`/dashboard/prospects/${lead.business_id}`}
-                      className="block rounded-lg border border-border-hairline bg-surface-2 p-2.5 text-sm hover:border-accent-450/50"
+                      className="rounded-lg border border-border-hairline bg-surface-2 p-2.5 text-sm hover:border-accent-450/50"
                     >
-                      <div className="font-medium text-text-primary">{business?.name ?? "—"}</div>
+                      <Link href={`/dashboard/prospects/${lead.business_id}`} className="font-medium text-text-primary hover:underline">
+                        {business?.name ?? "—"}
+                      </Link>
                       {lead.value_estimate && (
                         <div className="text-xs text-text-muted">{formatCurrencyEUR(lead.value_estimate)}</div>
                       )}
@@ -77,7 +79,10 @@ export default async function PipelinePage() {
                           {lead.next_action_date ? ` · ${lead.next_action_date}` : ""}
                         </div>
                       )}
-                    </Link>
+                      <div className="mt-2">
+                        <LeadStageSelect leadId={lead.id} currentStage={lead.stage} className="h-7 w-full rounded border border-border-hairline bg-surface-1 px-1 text-xs" />
+                      </div>
+                    </div>
                   );
                 })}
               </div>
