@@ -7,6 +7,7 @@ import { scanWebsite } from "@/backend/scanner/scan-website";
 import { computeScores } from "@/lib/scoring/compute-scores";
 import { AnthropicAIProvider } from "@/lib/ai/provider";
 import { ProviderNotConfiguredError } from "@/lib/integrations/business-sources/types";
+import { generateDemo as buildDemo } from "@/backend/demo-generator/generate-demo";
 
 export interface AnalyzeState {
   error: string | null;
@@ -157,6 +158,33 @@ export async function generateProposal(businessId: string, _prevState: AnalyzeSt
 
   revalidatePath(`/dashboard/prospects/${businessId}`);
   revalidatePath("/dashboard/proposals");
+  return { error: null, ok: true };
+}
+
+export async function generateDemo(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  const repo = await getRepository();
+  const business = await repo.getBusiness(businessId);
+  if (!business) return { error: "Negocio no encontrado.", ok: false };
+
+  const provider = new AnthropicAIProvider();
+
+  try {
+    const content = await buildDemo(provider, business);
+    await repo.saveDemo({
+      business_id: businessId,
+      owner_id: business.owner_id,
+      status: "draft",
+      content: content as unknown as Record<string, unknown>,
+      webflow_site_id: null,
+      published_url: null,
+    });
+  } catch (err) {
+    if (err instanceof ProviderNotConfiguredError) return { error: err.message, ok: false };
+    return { error: err instanceof Error ? err.message : "No se pudo generar la demo.", ok: false };
+  }
+
+  revalidatePath(`/dashboard/prospects/${businessId}`);
+  revalidatePath("/dashboard/demos");
   return { error: null, ok: true };
 }
 

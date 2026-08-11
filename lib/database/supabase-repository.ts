@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -471,5 +471,40 @@ export class SupabaseAgencyRepository implements AgencyRepository {
     const { data, error } = await this.supabase.from("proposals").select("*").order("created_at", { ascending: false });
     if (error) throw error;
     return (data ?? []) as Proposal[];
+  }
+
+  async saveDemo(demo: Omit<Demo, "id" | "created_at">): Promise<Demo> {
+    const { data, error } = await this.supabase
+      .from("demos")
+      .insert({
+        business_id: demo.business_id,
+        owner_id: demo.owner_id,
+        status: demo.status,
+        content: demo.content,
+        webflow_site_id: demo.webflow_site_id,
+        published_url: demo.published_url,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Demo;
+  }
+
+  async getLatestDemoForBusiness(businessId: string): Promise<Demo | null> {
+    const { data, error } = await this.supabase
+      .from("demos")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as Demo) ?? null;
+  }
+
+  async listDemos(): Promise<Demo[]> {
+    const { data, error } = await this.supabase.from("demos").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as Demo[];
   }
 }

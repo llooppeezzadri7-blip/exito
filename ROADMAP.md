@@ -13,7 +13,7 @@ Status legend: ✅ done · 🔄 in progress · ⏳ planned · ⛔ blocked (needs
 | 6 | AI Audit generation (Claude) | ✅ code complete (lib/ai/provider.ts, structured JSON output, no-hallucination system prompt) — ⛔ inactive at runtime until `ANTHROPIC_API_KEY` is set |
 | 7 | CRM pipeline (lead stages, activities, follow-up) | ✅ stage transitions, next-action/notes, activity log (auto-logged on stage change), "Añadir a pipeline" |
 | 8 | Proposal generator | ✅ wired end-to-end; price computed from real `settings.pricing`, never invented by the model |
-| 9 | Demo generator (uses real business data only) | ⏳ not started |
+| 9 | Demo generator (uses real business data only) | ✅ AI writes only headline/subheadline/about/CTA from real fields; contact/reviews assembled directly from the DB (never AI-generated); photos/testimonials are explicit placeholders; nothing auto-publishes (no publish action exists yet, by design) |
 | 10 | WebflowService (app-driven) + docs on MCP-driven demo editing | ⛔ needs `WEBFLOW_API_TOKEN` for app-driven path; MCP path already usable interactively |
 | 11 | Automations (n8n) | ⏳ optional, only if it adds value per §37 |
 | 12 | Analytics + cost tracking (`api_usage`, cost-per-lead, ROI) | ⏳ |

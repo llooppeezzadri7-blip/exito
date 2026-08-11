@@ -1,7 +1,7 @@
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
 import { MOCK_SETTINGS, computeMockKpis } from "./mock-data";
 import { mockStore } from "./mock-store";
-import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -279,5 +279,19 @@ export class MockAgencyRepository implements AgencyRepository {
 
   async listProposals(): Promise<Proposal[]> {
     return [...mockStore.proposals];
+  }
+
+  async saveDemo(demo: Omit<Demo, "id" | "created_at">): Promise<Demo> {
+    const saved: Demo = { ...demo, id: nextId("demo"), created_at: new Date().toISOString() };
+    mockStore.demos.unshift(saved);
+    return saved;
+  }
+
+  async getLatestDemoForBusiness(businessId: string): Promise<Demo | null> {
+    return mockStore.demos.find((d) => d.business_id === businessId) ?? null;
+  }
+
+  async listDemos(): Promise<Demo[]> {
+    return [...mockStore.demos];
   }
 }

@@ -2,14 +2,16 @@ import { notFound } from "next/navigation";
 import { getRepository } from "@/lib/database";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge, scoreBucket } from "@/components/ui/Badge";
-import { buttonVariants } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AnalyzeWebsiteButton } from "./AnalyzeWebsiteButton";
 import { RecalculateScoreButton } from "./RecalculateScoreButton";
 import { GenerateAuditButton } from "./GenerateAuditButton";
 import { GenerateProposalButton } from "./GenerateProposalButton";
+import { GenerateDemoButton } from "./GenerateDemoButton";
+import { DemoPreview } from "./DemoPreview";
 import { PipelineCard } from "./PipelineCard";
 import { formatCurrencyEUR } from "@/lib/utils/format";
+import type { DemoContent } from "@/backend/demo-generator/generate-demo";
 
 const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_score"; label: string }[] = [
   { key: "opportunity_score", label: "Opportunity Score" },
@@ -40,6 +42,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
   const lead = await repo.getLeadForBusiness(id);
   const activities = lead ? await repo.listLeadActivities(lead.id) : [];
   const proposal = await repo.getLatestProposalForBusiness(id);
+  const demo = await repo.getLatestDemoForBusiness(id);
 
   return (
     <div className="space-y-6">
@@ -62,9 +65,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
           <RecalculateScoreButton businessId={business.id} />
           <GenerateAuditButton businessId={business.id} />
           <GenerateProposalButton businessId={business.id} />
-          <button className={buttonVariants()} disabled title="Disponible en la Fase 9">
-            Generar demo
-          </button>
+          <GenerateDemoButton businessId={business.id} />
         </div>
       </div>
 
@@ -232,6 +233,23 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
                 </details>
               )}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Demo de nueva web</CardTitle>
+          {demo && <span className="text-xs text-text-muted">{new Date(demo.created_at).toLocaleString("es-ES")}</span>}
+        </CardHeader>
+        <CardContent>
+          {!demo ? (
+            <EmptyState
+              title="Todavía no hay una demo generada"
+              description='Pulsa "Generar demo" para crear una vista previa de nueva web con los datos reales de este negocio (placeholders para fotos/testimonios). Nunca se publica automáticamente. Requiere ANTHROPIC_API_KEY configurada.'
+            />
+          ) : (
+            <DemoPreview content={demo.content as unknown as DemoContent} />
           )}
         </CardContent>
       </Card>

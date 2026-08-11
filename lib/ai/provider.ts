@@ -26,6 +26,13 @@ export interface OutreachMessage {
   body: string;
 }
 
+export interface DemoCopy {
+  headline: string;
+  subheadline: string;
+  about: string;
+  cta_text: string;
+}
+
 const NO_HALLUCINATION_RULE = `REGLAS ESTRICTAS (no negociables):
 - NUNCA inventes cifras de tráfico web, ingresos, número de clientes/ventas perdidas, posiciones en Google, tasas de conversión reales, ni ninguna métrica que no esté explícitamente en los datos proporcionados.
 - Basa cada afirmación únicamente en los datos técnicos/de negocio proporcionados.
@@ -71,6 +78,18 @@ const OUTREACH_SCHEMA: Record<string, unknown> = {
   additionalProperties: false,
 };
 
+const DEMO_COPY_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    headline: { type: "string", description: "Titular corto para el hero de la web, basado en el nombre/categoría reales" },
+    subheadline: { type: "string" },
+    about: { type: "string", description: "Párrafo breve de 'sobre nosotros', basado SOLO en los datos reales proporcionados" },
+    cta_text: { type: "string", description: "Texto del botón de llamada a la acción, ej. 'Reserva ahora', 'Pide cita'" },
+  },
+  required: ["headline", "subheadline", "about", "cta_text"],
+  additionalProperties: false,
+};
+
 export interface AIProvider {
   readonly isActive: boolean;
   generateAudit(input: { business: Business; scan: WebsiteScan | null; score: Score | null }): Promise<AuditReport>;
@@ -80,6 +99,7 @@ export interface AIProvider {
     settings: Settings;
   }): Promise<ProposalContent>;
   generateOutreachMessage(input: { business: Business; audit: AuditReport }): Promise<OutreachMessage>;
+  generateDemoCopy(input: { business: Business }): Promise<DemoCopy>;
 }
 
 export class AnthropicAIProvider implements AIProvider {
@@ -184,6 +204,23 @@ Nunca empieces con "Hola, hacemos páginas web." Referencia problemas concretos 
       system: `Eres un SDR de una agencia digital que escribe mensajes de primer contacto breves, concretos y hiperpersonalizados (nunca plantillas genéricas). ${NO_HALLUCINATION_RULE}`,
       prompt,
       schema: OUTREACH_SCHEMA,
+    });
+  }
+
+  async generateDemoCopy(input: { business: Business }): Promise<DemoCopy> {
+    const { business } = input;
+
+    const prompt = `Escribe el copy para una página de demostración de nueva web para este negocio, usando ÚNICAMENTE estos datos reales:
+
+${JSON.stringify({ name: business.name, category: business.category, sector: business.sector, city: business.city, address: business.address, phone: business.phone, rating: business.rating, review_count: business.review_count })}
+
+No inventes servicios, precios, historia ni testimonios que no estén aquí. Si falta un dato, no lo menciones.`;
+
+    return this.createStructured<DemoCopy>({
+      model: "claude-sonnet-5",
+      system: `Eres un copywriter de una agencia digital que escribe el texto de una página de aterrizaje de demostración para un negocio local, a partir de datos reales. ${NO_HALLUCINATION_RULE}`,
+      prompt,
+      schema: DEMO_COPY_SCHEMA,
     });
   }
 }
