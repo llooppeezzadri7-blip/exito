@@ -172,6 +172,21 @@ export interface ApiUsage {
   created_at: string;
 }
 
+export interface WebsiteScan {
+  id: string;
+  website_id: string | null;
+  business_id: string;
+  status: "completed" | "partial" | "failed";
+  source: string;
+  technical: Record<string, unknown>;
+  seo: Record<string, unknown>;
+  conversion: Record<string, unknown>;
+  design: Record<string, unknown>;
+  performance: Record<string, unknown>;
+  unavailable_metrics: string[];
+  scanned_at: string;
+}
+
 export interface DashboardKpis {
   businesses_found: number;
   businesses_analyzed: number;

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge, scoreBucket } from "@/components/ui/Badge";
 import { buttonVariants } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { AnalyzeWebsiteButton } from "./AnalyzeWebsiteButton";
 
 const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_score"; label: string }[] = [
   { key: "opportunity_score", label: "Opportunity Score" },
@@ -29,6 +30,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
   if (!business) notFound();
 
   const score = business.score;
+  const scan = await repo.getLatestWebsiteScan(id);
 
   return (
     <div className="space-y-6">
@@ -47,6 +49,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
           </p>
         </div>
         <div className="flex gap-2">
+          <AnalyzeWebsiteButton businessId={business.id} hasWebsite={Boolean(business.website_url)} />
           <button className={buttonVariants({ variant: "secondary" })} disabled title="Disponible en la Fase 6">
             Generar auditoría IA
           </button>
@@ -117,6 +120,38 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
 
       <Card>
         <CardHeader>
+          <CardTitle>Escaneo técnico de la web</CardTitle>
+          {scan && (
+            <span className="text-xs text-text-muted">{new Date(scan.scanned_at).toLocaleString("es-ES")}</span>
+          )}
+        </CardHeader>
+        <CardContent>
+          {!scan ? (
+            <EmptyState
+              title="Todavía no se ha escaneado la web de este negocio"
+              description={
+                business.website_url
+                  ? 'Pulsa "Analizar web ahora" para comprobar HTTPS, SEO on-page, señales de conversión y disponibilidad de robots.txt/sitemap en tiempo real.'
+                  : "Este negocio no tiene una web detectada — señal fuerte de buying intent por sí sola."
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <ScanGroup title="Técnico" data={scan.technical} />
+              <ScanGroup title="SEO" data={scan.seo} />
+              <ScanGroup title="Conversión" data={scan.conversion} />
+              {scan.unavailable_metrics.length > 0 && (
+                <div className="sm:col-span-3 text-xs text-text-muted">
+                  No disponible en este escaneo: {scan.unavailable_metrics.join(", ")}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Problemas y oportunidades</CardTitle>
         </CardHeader>
         <CardContent>
@@ -135,6 +170,29 @@ function Row({ label, value }: { label: string; value: string | null | undefined
     <div className="flex justify-between gap-3 border-b border-border-hairline py-1.5 last:border-0">
       <span className="text-text-muted">{label}</span>
       <span className="text-right text-text-primary">{value || "—"}</span>
+    </div>
+  );
+}
+
+function formatScanValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
+
+function ScanGroup({ title, data }: { title: string; data: Record<string, unknown> }) {
+  const entries = Object.entries(data).filter(([key]) => !key.startsWith("_"));
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold text-text-secondary">{title}</p>
+      <dl className="space-y-1 text-xs">
+        {entries.map(([key, value]) => (
+          <div key={key} className="flex justify-between gap-2">
+            <dt className="text-text-muted">{key.replace(/_/g, " ")}</dt>
+            <dd className="text-right text-text-primary">{formatScanValue(value)}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

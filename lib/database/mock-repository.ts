@@ -1,7 +1,7 @@
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
 import { MOCK_SETTINGS, computeMockKpis } from "./mock-data";
 import { mockStore } from "./mock-store";
-import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Settings } from "./types";
+import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -156,5 +156,19 @@ export class MockAgencyRepository implements AgencyRepository {
     }
 
     return { inserted, duplicates };
+  }
+
+  async saveWebsiteScan(scan: Omit<WebsiteScan, "id" | "scanned_at">): Promise<WebsiteScan> {
+    const saved: WebsiteScan = { ...scan, id: nextId("scan"), scanned_at: new Date().toISOString() };
+    mockStore.websiteScans.unshift(saved);
+
+    const business = mockStore.businesses.find((b) => b.id === scan.business_id);
+    if (business) business.last_analyzed_at = saved.scanned_at;
+
+    return saved;
+  }
+
+  async getLatestWebsiteScan(businessId: string): Promise<WebsiteScan | null> {
+    return mockStore.websiteScans.find((s) => s.business_id === businessId) ?? null;
   }
 }

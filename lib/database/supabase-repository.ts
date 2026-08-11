@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings } from "./types";
+import type { Business, DashboardKpis, Job, JobType, Lead, LeadStage, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -236,5 +236,68 @@ export class SupabaseAgencyRepository implements AgencyRepository {
     if (error) throw error;
 
     return { inserted: (data ?? []) as Business[], duplicates };
+  }
+
+  private async ensureWebsiteRow(businessId: string, url: string | null): Promise<string | null> {
+    if (!url) return null;
+
+    const { data: existing, error: findError } = await this.supabase
+      .from("websites")
+      .select("id")
+      .eq("business_id", businessId)
+      .limit(1)
+      .maybeSingle();
+    if (findError) throw findError;
+    if (existing) return existing.id as string;
+
+    const { data: created, error: insertError } = await this.supabase
+      .from("websites")
+      .insert({ business_id: businessId, url })
+      .select("id")
+      .single();
+    if (insertError) throw insertError;
+    return created.id as string;
+  }
+
+  async saveWebsiteScan(scan: Omit<WebsiteScan, "id" | "scanned_at">): Promise<WebsiteScan> {
+    const business = await this.getBusiness(scan.business_id);
+    const websiteId = await this.ensureWebsiteRow(scan.business_id, business?.website_url ?? null);
+
+    const { data, error } = await this.supabase
+      .from("website_scans")
+      .insert({
+        website_id: websiteId,
+        business_id: scan.business_id,
+        status: scan.status,
+        source: scan.source,
+        technical: scan.technical,
+        seo: scan.seo,
+        conversion: scan.conversion,
+        design: scan.design,
+        performance: scan.performance,
+        unavailable_metrics: scan.unavailable_metrics,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    await this.supabase
+      .from("businesses")
+      .update({ last_analyzed_at: new Date().toISOString() })
+      .eq("id", scan.business_id);
+
+    return data as WebsiteScan;
+  }
+
+  async getLatestWebsiteScan(businessId: string): Promise<WebsiteScan | null> {
+    const { data, error } = await this.supabase
+      .from("website_scans")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("scanned_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as WebsiteScan) ?? null;
   }
 }
