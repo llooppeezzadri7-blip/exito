@@ -25,7 +25,17 @@ export const MOCK_SETTINGS: Settings = {
     "Optimización de conversión",
     "Automatización de marketing",
   ],
-  pricing: {},
+  // Illustrative starting prices in EUR, editable from /settings once the
+  // settings editor ships — see ROADMAP.md. Used by the proposal generator
+  // to compute a real total instead of letting the AI invent a price.
+  pricing: {
+    "Diseño y desarrollo web": 1800,
+    SEO: 450,
+    "SEO local": 350,
+    "Optimización Google Business Profile": 250,
+    "Optimización de conversión": 400,
+    "Automatización de marketing": 500,
+  },
   scoring_weights: {
     opportunity: {
       website_quality: 0.2,

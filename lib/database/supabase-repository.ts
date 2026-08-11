@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Score, Settings, WebsiteScan } from "./types";
+import type { AiReport, Business, DashboardKpis, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 
 const LEAD_STAGES: LeadStage[] = [
@@ -431,5 +431,45 @@ export class SupabaseAgencyRepository implements AgencyRepository {
       .order("created_at", { ascending: false });
     if (error) throw error;
     return (data ?? []) as LeadActivity[];
+  }
+
+  async saveProposal(proposal: Omit<Proposal, "id" | "created_at">): Promise<Proposal> {
+    const { data, error } = await this.supabase
+      .from("proposals")
+      .insert({
+        business_id: proposal.business_id,
+        owner_id: proposal.owner_id,
+        title: proposal.title,
+        services: proposal.services,
+        price_total: proposal.price_total,
+        currency: proposal.currency,
+        timeline: proposal.timeline,
+        maintenance_terms: proposal.maintenance_terms,
+        next_steps: proposal.next_steps,
+        content: proposal.content,
+        status: proposal.status,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Proposal;
+  }
+
+  async getLatestProposalForBusiness(businessId: string): Promise<Proposal | null> {
+    const { data, error } = await this.supabase
+      .from("proposals")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as Proposal) ?? null;
+  }
+
+  async listProposals(): Promise<Proposal[]> {
+    const { data, error } = await this.supabase.from("proposals").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as Proposal[];
   }
 }

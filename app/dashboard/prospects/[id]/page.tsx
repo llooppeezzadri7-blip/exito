@@ -7,7 +7,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { AnalyzeWebsiteButton } from "./AnalyzeWebsiteButton";
 import { RecalculateScoreButton } from "./RecalculateScoreButton";
 import { GenerateAuditButton } from "./GenerateAuditButton";
+import { GenerateProposalButton } from "./GenerateProposalButton";
 import { PipelineCard } from "./PipelineCard";
+import { formatCurrencyEUR } from "@/lib/utils/format";
 
 const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_score"; label: string }[] = [
   { key: "opportunity_score", label: "Opportunity Score" },
@@ -37,6 +39,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
   const audit = await repo.getLatestAiReport(id);
   const lead = await repo.getLeadForBusiness(id);
   const activities = lead ? await repo.listLeadActivities(lead.id) : [];
+  const proposal = await repo.getLatestProposalForBusiness(id);
 
   return (
     <div className="space-y-6">
@@ -58,9 +61,7 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
           <AnalyzeWebsiteButton businessId={business.id} hasWebsite={Boolean(business.website_url)} />
           <RecalculateScoreButton businessId={business.id} />
           <GenerateAuditButton businessId={business.id} />
-          <button className={buttonVariants({ variant: "secondary" })} disabled title="Disponible en la Fase 8">
-            Generar propuesta
-          </button>
+          <GenerateProposalButton businessId={business.id} />
           <button className={buttonVariants()} disabled title="Disponible en la Fase 9">
             Generar demo
           </button>
@@ -187,6 +188,49 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
                 <p className="text-text-secondary">{audit.commercial_impact}</p>
               </div>
               <AuditList title="Recomendaciones (por prioridad)" items={audit.priorities} tone="accent" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Propuesta comercial</CardTitle>
+          <div className="flex items-center gap-2">
+            {proposal && <Badge tone="neutral">{proposal.status}</Badge>}
+            {proposal && <span className="text-xs text-text-muted">{new Date(proposal.created_at).toLocaleString("es-ES")}</span>}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!proposal ? (
+            <EmptyState
+              title="Todavía no hay una propuesta generada"
+              description='Pulsa "Generar propuesta" para crear una propuesta comercial a partir de los servicios y precios configurados en /settings y, si existe, la auditoría IA. Requiere ANTHROPIC_API_KEY configurada.'
+            />
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-text-primary">{proposal.title}</h3>
+                {proposal.price_total != null && (
+                  <span className="text-lg font-semibold tabular-nums">{formatCurrencyEUR(proposal.price_total)}</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {proposal.services.map((s) => (
+                  <Badge key={s} tone="accent">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+              <Row label="Plazo" value={proposal.timeline} />
+              <Row label="Mantenimiento" value={proposal.maintenance_terms} />
+              <Row label="Próximos pasos" value={proposal.next_steps} />
+              {proposal.content && (
+                <details className="pt-2">
+                  <summary className="cursor-pointer text-xs font-medium text-accent-500">Ver propuesta completa</summary>
+                  <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-xs text-text-secondary">{proposal.content}</pre>
+                </details>
+              )}
             </div>
           )}
         </CardContent>

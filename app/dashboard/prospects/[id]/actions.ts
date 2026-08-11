@@ -118,6 +118,48 @@ export async function updateLeadFollowUp(leadId: string, formData: FormData): Pr
   revalidatePath("/dashboard/pipeline");
 }
 
+export async function generateProposal(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
+  const repo = await getRepository();
+  const [business, audit, settings] = await Promise.all([
+    repo.getBusiness(businessId),
+    repo.getLatestAiReport(businessId),
+    repo.getSettings(),
+  ]);
+  if (!business) return { error: "Negocio no encontrado.", ok: false };
+
+  const provider = new AnthropicAIProvider();
+
+  try {
+    const draft = await provider.generateProposal({ business, audit, settings });
+
+    const priceTotal = draft.services.reduce((sum, service) => {
+      const price = settings.pricing[service];
+      return sum + (typeof price === "number" ? price : 0);
+    }, 0);
+
+    await repo.saveProposal({
+      business_id: businessId,
+      owner_id: business.owner_id,
+      title: draft.title,
+      services: draft.services,
+      price_total: priceTotal || null,
+      currency: "EUR",
+      timeline: draft.timeline,
+      maintenance_terms: draft.maintenance_terms,
+      next_steps: draft.next_steps,
+      content: draft.content,
+      status: "draft",
+    });
+  } catch (err) {
+    if (err instanceof ProviderNotConfiguredError) return { error: err.message, ok: false };
+    return { error: err instanceof Error ? err.message : "No se pudo generar la propuesta.", ok: false };
+  }
+
+  revalidatePath(`/dashboard/prospects/${businessId}`);
+  revalidatePath("/dashboard/proposals");
+  return { error: null, ok: true };
+}
+
 export async function generateAiAudit(businessId: string, _prevState: AnalyzeState): Promise<AnalyzeState> {
   const repo = await getRepository();
   const business = await repo.getBusiness(businessId);
