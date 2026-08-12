@@ -1,4 +1,4 @@
-import { env, hasWebflow } from "@/lib/config/env";
+import { env } from "@/lib/config/env";
 import { ProviderNotConfiguredError } from "@/lib/integrations/business-sources/types";
 
 export interface WebflowSite {
@@ -37,19 +37,40 @@ export interface WebflowPage {
  * cover page/CMS editing interactively; this class is for the app's own
  * server-triggered actions (e.g. "publish this generated demo").
  */
+export interface WebflowConfig {
+  token?: string;
+  siteId?: string;
+}
+
 export class WebflowService {
   private readonly baseUrl = "https://api.webflow.com/v2";
+  private readonly token?: string;
+  private readonly configuredSiteId?: string;
+
+  /**
+   * Config defaults to the environment. It's injectable so tests can exercise
+   * the request/response handling without setting real credentials.
+   */
+  constructor(config: WebflowConfig = {}) {
+    this.token = config.token ?? env.WEBFLOW_API_TOKEN;
+    this.configuredSiteId = config.siteId ?? env.WEBFLOW_SITE_ID;
+  }
 
   get isActive() {
-    return hasWebflow;
+    return Boolean(this.token && this.configuredSiteId);
+  }
+
+  /** The site every write targets. Null when Webflow isn't configured. */
+  get siteId(): string | null {
+    return this.configuredSiteId || null;
   }
 
   private headers(): HeadersInit {
-    if (!hasWebflow) {
+    if (!this.token || !this.configuredSiteId) {
       throw new ProviderNotConfiguredError("Webflow", ["WEBFLOW_API_TOKEN", "WEBFLOW_SITE_ID"]);
     }
     return {
-      Authorization: `Bearer ${env.WEBFLOW_API_TOKEN}`,
+      Authorization: `Bearer ${this.token}`,
       "Content-Type": "application/json",
     };
   }
@@ -61,7 +82,7 @@ export class WebflowService {
     return data.sites ?? [];
   }
 
-  async listPages(siteId: string = env.WEBFLOW_SITE_ID!): Promise<WebflowPage[]> {
+  async listPages(siteId: string = this.configuredSiteId!): Promise<WebflowPage[]> {
     const res = await fetch(`${this.baseUrl}/sites/${siteId}/pages`, { headers: this.headers() });
     if (!res.ok) throw new Error(`Webflow API error: ${res.status}`);
     const data = await res.json();
@@ -70,10 +91,10 @@ export class WebflowService {
 
   /** Publishes the whole site (or one page via pageId) to the Webflow subdomain. Never called without explicit user confirmation — see brief §17. */
   async publish(options: { pageId?: string; publishToWebflowSubdomain?: boolean; customDomains?: string[] } = {}): Promise<void> {
-    const siteId = env.WEBFLOW_SITE_ID!;
-    const res = await fetch(`${this.baseUrl}/sites/${siteId}/publish`, {
+    const headers = this.headers();
+    const res = await fetch(`${this.baseUrl}/sites/${this.configuredSiteId}/publish`, {
       method: "POST",
-      headers: this.headers(),
+      headers,
       body: JSON.stringify({
         publishToWebflowSubdomain: options.publishToWebflowSubdomain ?? true,
         customDomains: options.customDomains,
@@ -81,6 +102,19 @@ export class WebflowService {
       }),
     });
     if (!res.ok) throw new Error(`Webflow publish error: ${res.status}`);
+  }
+
+  /**
+   * Public webflow.io URL of the configured site, derived from the site's
+   * `shortName` as returned by `GET /v2/sites` — the publish response body's
+   * shape isn't in the verified endpoint set above, so it isn't parsed for
+   * this. Returns null when the site isn't in the token's account (e.g. a
+   * stale WEBFLOW_SITE_ID), so callers can record a publish that succeeded
+   * without inventing a URL for it.
+   */
+  async getSiteSubdomainUrl(siteId: string = this.configuredSiteId!): Promise<string | null> {
+    const site = (await this.listSites()).find((s) => s.id === siteId);
+    return site?.shortName ? `https://${site.shortName}.webflow.io` : null;
   }
 
   async listCollectionItems(collectionId: string): Promise<unknown[]> {

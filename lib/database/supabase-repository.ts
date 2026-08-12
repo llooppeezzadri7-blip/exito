@@ -490,6 +490,15 @@ export class SupabaseAgencyRepository implements AgencyRepository {
     return data as Demo;
   }
 
+  async updateDemo(
+    demoId: string,
+    patch: Partial<Pick<Demo, "status" | "webflow_site_id" | "published_url">>
+  ): Promise<Demo> {
+    const { data, error } = await this.supabase.from("demos").update(patch).eq("id", demoId).select("*").single();
+    if (error) throw error;
+    return data as Demo;
+  }
+
   async getLatestDemoForBusiness(businessId: string): Promise<Demo | null> {
     const { data, error } = await this.supabase
       .from("demos")

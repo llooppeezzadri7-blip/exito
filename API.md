@@ -35,6 +35,15 @@ the same operations without guessing.
 - `generateDemo(businessId, prevState)` — assembles demo content (AI copy + real DB
   fields only), persists a `demos` row with `status: "draft"`. Rate-limited
   3/min/business. **Inactive without `ANTHROPIC_API_KEY`.**
+- `publishDemoToWebflow(businessId, prevState, formData)` — `confirm` must equal `"yes"`
+  or the action returns without calling Webflow; publishes the site in `WEBFLOW_SITE_ID`
+  to its `webflow.io` subdomain, then updates the business's latest `demos` row
+  (`status: "published"`, `webflow_site_id`, `published_url`) and records an `api_usage`
+  row (`service: "webflow"`, cost 0 — the Data API isn't billed per request).
+  Rate-limited 2/min/business. **Inactive without `WEBFLOW_API_TOKEN` + `WEBFLOW_SITE_ID`.**
+  Scope: this publishes the configured Webflow site as it currently stands — it does not
+  upload the generated `demo.content` into Webflow, so the demo must already be built in
+  that site (page/CMS authoring is done with the Webflow MCP tools, not the app).
 
 ## Repository layer (`lib/database`)
 
