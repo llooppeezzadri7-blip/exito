@@ -9,7 +9,9 @@ import { GenerateAuditButton } from "./GenerateAuditButton";
 import { GenerateProposalButton } from "./GenerateProposalButton";
 import { GenerateDemoButton } from "./GenerateDemoButton";
 import { DemoPreview } from "./DemoPreview";
+import { PublishDemoButton } from "./PublishDemoButton";
 import { PipelineCard } from "./PipelineCard";
+import { hasWebflow } from "@/lib/config/env";
 import { formatCurrencyEUR } from "@/lib/utils/format";
 import type { DemoContent } from "@/backend/demo-generator/generate-demo";
 
@@ -240,7 +242,10 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
       <Card>
         <CardHeader>
           <CardTitle>Demo de nueva web</CardTitle>
-          {demo && <span className="text-xs text-text-muted">{new Date(demo.created_at).toLocaleString("es-ES")}</span>}
+          <div className="flex items-center gap-2">
+            {demo && <Badge tone={demo.status === "published" ? "good" : "neutral"}>{demo.status}</Badge>}
+            {demo && <span className="text-xs text-text-muted">{new Date(demo.created_at).toLocaleString("es-ES")}</span>}
+          </div>
         </CardHeader>
         <CardContent>
           {!demo ? (
@@ -249,7 +254,23 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
               description='Pulsa "Generar demo" para crear una vista previa de nueva web con los datos reales de este negocio (placeholders para fotos/testimonios). Nunca se publica automáticamente. Requiere ANTHROPIC_API_KEY configurada.'
             />
           ) : (
-            <DemoPreview content={demo.content as unknown as DemoContent} />
+            <div className="space-y-4">
+              <DemoPreview content={demo.content as unknown as DemoContent} />
+              {demo.published_url && (
+                <p className="text-sm text-text-secondary">
+                  Publicada en{" "}
+                  <a
+                    href={demo.published_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-accent-500 hover:underline"
+                  >
+                    {demo.published_url}
+                  </a>
+                </p>
+              )}
+              <PublishDemoButton businessId={business.id} configured={hasWebflow} />
+            </div>
           )}
         </CardContent>
       </Card>

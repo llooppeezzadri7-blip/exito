@@ -287,6 +287,16 @@ export class MockAgencyRepository implements AgencyRepository {
     return saved;
   }
 
+  async updateDemo(
+    demoId: string,
+    patch: Partial<Pick<Demo, "status" | "webflow_site_id" | "published_url">>
+  ): Promise<Demo> {
+    const demo = mockStore.demos.find((d) => d.id === demoId);
+    if (!demo) throw new Error(`Demo ${demoId} not found`);
+    Object.assign(demo, patch);
+    return demo;
+  }
+
   async getLatestDemoForBusiness(businessId: string): Promise<Demo | null> {
     return mockStore.demos.find((d) => d.business_id === businessId) ?? null;
   }

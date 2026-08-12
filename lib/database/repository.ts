@@ -60,6 +60,11 @@ export interface AgencyRepository {
   listProposals(): Promise<Proposal[]>;
 
   saveDemo(demo: Omit<Demo, "id" | "created_at">): Promise<Demo>;
+  /** Records the outcome of a publish (status, target site, live URL). */
+  updateDemo(
+    demoId: string,
+    patch: Partial<Pick<Demo, "status" | "webflow_site_id" | "published_url">>
+  ): Promise<Demo>;
   getLatestDemoForBusiness(businessId: string): Promise<Demo | null>;
   listDemos(): Promise<Demo[]>;
 
