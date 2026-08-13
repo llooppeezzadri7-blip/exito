@@ -25,6 +25,9 @@ export interface AgencyRepository {
   listRecentJobs(limit?: number): Promise<Job[]>;
   listLeadsByStage(): Promise<Record<LeadStage, Lead[]>>;
   getSettings(): Promise<Settings>;
+  updateSettings(
+    patch: Partial<Pick<Settings, "agency_name" | "sectors" | "countries" | "cities" | "services" | "pricing" | "scoring_weights">>
+  ): Promise<Settings>;
 
   createJob(input: { type: JobType; params: Record<string, unknown>; progressTotal?: number }): Promise<Job>;
   updateJob(id: string, patch: Partial<Pick<Job, "status" | "progress_current" | "progress_total" | "result" | "error" | "started_at" | "finished_at" | "retry_count">>): Promise<Job>;

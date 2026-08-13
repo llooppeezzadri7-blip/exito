@@ -160,6 +160,21 @@ export class SupabaseAgencyRepository implements AgencyRepository {
     return data as Settings;
   }
 
+  async updateSettings(
+    patch: Partial<Pick<Settings, "agency_name" | "sectors" | "countries" | "cities" | "services" | "pricing" | "scoring_weights">>
+  ): Promise<Settings> {
+    // RLS ("settings_owner_all") already scopes this to the caller; the
+    // explicit owner_id filter keeps it a single-row update either way.
+    const { data, error } = await this.supabase
+      .from("settings")
+      .update(patch)
+      .eq("owner_id", this.ownerId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Settings;
+  }
+
   async createJob(input: { type: JobType; params: Record<string, unknown>; progressTotal?: number }): Promise<Job> {
     const { data, error } = await this.supabase
       .from("jobs")

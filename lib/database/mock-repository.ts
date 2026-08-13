@@ -1,5 +1,5 @@
 import type { AgencyRepository, BusinessListFilters, BusinessWithScore } from "./repository";
-import { MOCK_SETTINGS, computeMockKpis } from "./mock-data";
+import { computeMockKpis } from "./mock-data";
 import { mockStore } from "./mock-store";
 import type { AiReport, ApiUsage, Business, DashboardKpis, Demo, Job, JobType, Lead, LeadActivity, LeadActivityType, LeadStage, Proposal, Score, Settings, WebsiteScan } from "./types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
@@ -77,7 +77,16 @@ export class MockAgencyRepository implements AgencyRepository {
   }
 
   async getSettings(): Promise<Settings> {
-    return MOCK_SETTINGS;
+    return mockStore.settings;
+  }
+
+  async updateSettings(
+    patch: Partial<Pick<Settings, "agency_name" | "sectors" | "countries" | "cities" | "services" | "pricing" | "scoring_weights">>
+  ): Promise<Settings> {
+    // Process-local only: survives navigation during a dev session, resets on
+    // restart. The settings page tells the user as much in mock mode.
+    mockStore.settings = { ...mockStore.settings, ...patch, updated_at: new Date().toISOString() };
+    return mockStore.settings;
   }
 
   async createJob(input: { type: JobType; params: Record<string, unknown>; progressTotal?: number }): Promise<Job> {

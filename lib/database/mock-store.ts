@@ -1,5 +1,5 @@
-import { MOCK_BUSINESSES, MOCK_JOBS, MOCK_LEADS, MOCK_SCORES } from "./mock-data";
-import type { AiReport, ApiUsage, Business, Demo, Job, Lead, LeadActivity, Proposal, Score, WebsiteScan } from "./types";
+import { MOCK_BUSINESSES, MOCK_JOBS, MOCK_LEADS, MOCK_SCORES, MOCK_SETTINGS } from "./mock-data";
+import type { AiReport, ApiUsage, Business, Demo, Job, Lead, LeadActivity, Proposal, Score, Settings, WebsiteScan } from "./types";
 
 /**
  * Mutable, process-local copy of the fixtures — lets the mock provider
@@ -18,6 +18,7 @@ class MockStore {
   proposals: Proposal[] = [];
   demos: Demo[] = [];
   apiUsage: ApiUsage[] = [];
+  settings: Settings = structuredClone(MOCK_SETTINGS);
 }
 
 const globalForMockStore = globalThis as unknown as { __mockStore?: MockStore };

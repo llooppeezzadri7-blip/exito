@@ -59,7 +59,10 @@ export interface Business {
   updated_at: string;
 }
 
-export interface ScoreBreakdown {
+// A type alias rather than an interface on purpose: object type aliases get an
+// implicit index signature, so a breakdown can be passed to the generic
+// Record<string, number> helpers in lib/scoring/weights.ts.
+export type ScoreBreakdown = {
   website_quality: number;
   seo: number;
   local_seo: number;
@@ -67,7 +70,7 @@ export interface ScoreBreakdown {
   mobile_ux: number;
   conversion: number;
   competitive_gap: number;
-}
+};
 
 export interface Score {
   id: string;

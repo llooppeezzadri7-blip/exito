@@ -62,6 +62,32 @@ test("prospects list links through to a prospect detail page", async ({ page }) 
   await expect(page).toHaveURL(/\/dashboard\/prospects\/[^/]+$/);
 });
 
+test("settings page saves scoring weights and normalizes them to 100%", async ({ page }) => {
+  await page.goto("/dashboard/settings");
+
+  const seo = page.getByLabel("SEO (porcentaje)", { exact: true });
+  await expect(seo).toBeVisible();
+
+  // Deliberately push the group past 100% — the server normalizes on save.
+  await seo.fill("40");
+  await expect(page.getByText(/al guardar se normalizará a 100%/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Guardar pesos" }).click();
+  await expect(page.getByText(/Pesos guardados y normalizados al 100%/)).toBeVisible();
+
+  // Values shown after the save are what the server stored: scaled down so the
+  // group adds up to 100% again. (Asserted relatively, not as a fixed number —
+  // the mock store keeps earlier edits within a server session.)
+  await expect(seo).not.toHaveValue("40");
+  await expect(page.getByText(/^Total: 100%$/).first()).toBeVisible();
+});
+
+test("settings page recalculates every stored score", async ({ page }) => {
+  await page.goto("/dashboard/settings");
+  await page.getByRole("button", { name: "Recalcular todas las puntuaciones" }).click();
+  await expect(page.getByText(/Recalculadas \d+ puntuaci/)).toBeVisible();
+});
+
 test("new-prospect page renders the CSV import form", async ({ page }) => {
   await page.goto("/dashboard/prospects/new");
   await expect(page.locator("form")).toBeVisible();

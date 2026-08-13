@@ -2,6 +2,8 @@ import { getRepository } from "@/lib/database";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { dataProvider } from "@/lib/config/env";
+import { ScoringWeightsForm } from "./ScoringWeightsForm";
+import { RecalculateAllButton } from "./RecalculateAllButton";
 
 export default async function SettingsPage() {
   const repo = await getRepository();
@@ -13,7 +15,8 @@ export default async function SettingsPage() {
         <h1 className="text-xl font-semibold tracking-tight">Configuración</h1>
         <p className="text-sm text-text-secondary">
           Sectores, ciudades, precios y pesos del scoring de tu agencia.
-          {dataProvider === "mock" && " Modo demostración: solo lectura hasta que conectes Supabase."}
+          {dataProvider === "mock" &&
+            " Modo demostración: los pesos son editables, pero se guardan solo en memoria (se pierden al reiniciar) hasta que conectes Supabase."}
         </p>
       </div>
 
@@ -50,20 +53,18 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
+      <ScoringWeightsForm weights={settings.scoring_weights} />
+
       <Card>
         <CardHeader>
-          <CardTitle>Pesos del Opportunity Score</CardTitle>
+          <CardTitle>Puntuaciones ya calculadas</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {Object.entries(settings.scoring_weights.opportunity).map(([key, value]) => (
-            <div key={key} className="flex items-center gap-3 text-sm">
-              <span className="w-40 text-text-secondary">{key.replace(/_/g, " ")}</span>
-              <div className="h-2 flex-1 rounded bg-surface-2">
-                <div className="h-2 rounded bg-accent-450" style={{ width: `${value * 100}%` }} />
-              </div>
-              <span className="w-10 text-right tabular-nums">{Math.round(value * 100)}%</span>
-            </div>
-          ))}
+        <CardContent className="space-y-3">
+          <p className="text-sm text-text-secondary">
+            Cada puntuación guarda los pesos con los que se calculó. Al cambiar los pesos, las puntuaciones
+            existentes no se tocan: recalcúlalas para aplicar los nuevos pesos a todos los prospectos.
+          </p>
+          <RecalculateAllButton />
         </CardContent>
       </Card>
 

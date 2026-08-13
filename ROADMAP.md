@@ -9,7 +9,7 @@ Status legend: ✅ done · 🔄 in progress · ⏳ planned · ⛔ blocked (needs
 | 2 | Discovery/prospection: job creation UI, `BusinessSourceProvider` (CSV active, Places stubbed) | ⏳ |
 | 3 | Website analyzer: technical/SEO/CRO scanner, SSRF guard | ✅ (design/visual scoring still unavailable — needs rendering, not implemented) |
 | 4 | Local SEO analyzer (GBP signals) + competitor comparison | ⛔ needs `GOOGLE_PLACES_API_KEY` (same key as discovery) — abstraction ready, no data source yet |
-| 5 | Scoring engine: Opportunity / Buying Intent / Lead score | ✅ (weights editable in DB/settings; dedicated settings-page editor UI still pending) |
+| 5 | Scoring engine: Opportunity / Buying Intent / Lead score | ✅ incl. settings-page weight editor (`/dashboard/settings`): sliders + % inputs for both weight groups, server-side validation, normalisation to 100% per group, and a "recalcular todas las puntuaciones" action (stored scores keep their `weights_snapshot` until explicitly recalculated) |
 | 6 | AI Audit generation (Claude) | ✅ code complete (lib/ai/provider.ts, structured JSON output, no-hallucination system prompt) — ⛔ inactive at runtime until `ANTHROPIC_API_KEY` is set |
 | 7 | CRM pipeline (lead stages, activities, follow-up) | ✅ stage transitions, next-action/notes, activity log (auto-logged on stage change), "Añadir a pipeline" |
 | 8 | Proposal generator | ✅ wired end-to-end; price computed from real `settings.pricing`, never invented by the model |
@@ -41,11 +41,20 @@ Status legend: ✅ done · 🔄 in progress · ⏳ planned · ⛔ blocked (needs
   and the prospects list → detail flow in a real browser — this is also what verified the CSP
   change doesn't break hydration/client navigation.
 
+- **2026-08-13** — Phase 5 scoring-weight editor shipped. Weights are stored as fractions summing
+  to 1 per group and the editor always normalises before saving, because both scores are weighted
+  averages of 0-100 sub-scores: a group summing to anything else silently deflates (or clamps)
+  every score. Changing weights deliberately does **not** rewrite existing scores — each `scores`
+  row keeps the `weights_snapshot` it was computed with — so the settings page offers an explicit
+  "recalcular todas las puntuaciones" action instead. In mock mode the editor stays usable but
+  writes to the process-local store (stated in the UI), so the flow is exercisable without Supabase.
+
 ## Next up
 
 Remaining Phase 13 item is penetration testing, which needs an explicit engagement scope and
-usually a deployed target — not something to schedule unprompted. Otherwise the credential-gated
-items (Phase 4 local SEO, Phase 6 AI audit activation, Phase 10 Webflow publish action) are the
-next real product work, blocked on the user providing `GOOGLE_PLACES_API_KEY` /
-`ANTHROPIC_API_KEY` / `WEBFLOW_API_TOKEN` + `WEBFLOW_SITE_ID` (see SETUP.md), or the Phase 5
-settings-page scoring-weight editor UI, which needs no new credentials.
+usually a deployed target — not something to schedule unprompted. The remaining product work is
+credential-gated: Phase 4 local SEO, Phase 6 AI audit activation and Phase 10 Webflow publish
+action are blocked on the user providing `GOOGLE_PLACES_API_KEY` / `ANTHROPIC_API_KEY` /
+`WEBFLOW_API_TOKEN` + `WEBFLOW_SITE_ID` (see SETUP.md). The next credential-free candidates are
+editors for the rest of the settings row (sectors, cities, services, pricing) on the same page,
+reusing `AgencyRepository.updateSettings`.
