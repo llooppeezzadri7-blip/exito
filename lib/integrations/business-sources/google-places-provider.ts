@@ -1,45 +1,249 @@
-import { hasGooglePlaces } from "@/lib/config/env";
-import type { BusinessSourceProvider, DiscoveryParams, DiscoveryResult } from "./types";
+import { env, hasGooglePlaces } from "@/lib/config/env";
+import type { BusinessSourceProvider, DiscoveryParams, DiscoveryResult, RawBusinessRecord } from "./types";
 import { ProviderNotConfiguredError } from "./types";
 
 /**
- * Google Places API (New) connector — implemented but left INACTIVE by
- * explicit decision with the user (2026-08-11, see ROADMAP.md) to avoid
- * incurring paid API costs before they opt in with billing + an API key.
+ * Google Places API (New) connector.
  *
- * Endpoints (verified against developers.google.com/maps/documentation/places/web-service,
- * not guessed):
+ * Endpoints, verified against developers.google.com/maps/documentation/places/web-service
+ * (not guessed):
  *   POST https://places.googleapis.com/v1/places:searchText
  *     headers: Content-Type: application/json, X-Goog-Api-Key, X-Goog-FieldMask
- *     body: { textQuery, pageSize (<=20), pageToken?, languageCode?, locationBias? }
- *     response place fields used: id, displayName, formattedAddress,
- *       internationalPhoneNumber, websiteUri, rating, userRatingCount,
- *       location, businessStatus, types
- *   GET  https://places.googleapis.com/v1/places/{PLACE_ID}
- *     (Place Details — for enrichment beyond what Text Search returns)
+ *     body: { textQuery, pageSize (<=20), pageToken?, languageCode?, regionCode?, locationBias? }
  *
- * Cost: pay-per-request (Places API New pricing), requires a Google Cloud
- * project with billing enabled. See ENVIRONMENT.md.
+ * Billing note (§27): the field mask decides the SKU. `rating` and
+ * `userRatingCount` are Enterprise-tier fields, so the mask below bills at
+ * Enterprise. It is kept in one constant so the cost of a sweep is a
+ * one-line decision rather than something buried in a request body.
  */
+
+const SEARCH_TEXT_URL = "https://places.googleapis.com/v1/places:searchText";
+
+const FIELD_MASK = [
+  "places.id",
+  "places.displayName",
+  "places.formattedAddress",
+  "places.addressComponents",
+  "places.internationalPhoneNumber",
+  "places.websiteUri",
+  "places.rating",
+  "places.userRatingCount",
+  "places.location",
+  "places.businessStatus",
+  "places.primaryTypeDisplayName",
+  "places.types",
+  "nextPageToken",
+].join(",");
+
+const MAX_PAGE_SIZE = 20;
+const MAX_RETRIES = 3;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+interface PlacesAddressComponent {
+  longText?: string;
+  shortText?: string;
+  types?: string[];
+}
+
+interface PlacesPlace {
+  id?: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  addressComponents?: PlacesAddressComponent[];
+  internationalPhoneNumber?: string;
+  websiteUri?: string;
+  rating?: number;
+  userRatingCount?: number;
+  location?: { latitude?: number; longitude?: number };
+  businessStatus?: string;
+  primaryTypeDisplayName?: { text?: string };
+  types?: string[];
+}
+
+interface PlacesResponse {
+  places?: PlacesPlace[];
+  nextPageToken?: string;
+}
+
+export interface PlacesSearchOptions {
+  /** Text query, e.g. "restaurante en Lloret de Mar". */
+  query: string;
+  maxResults?: number;
+  languageCode?: string;
+  regionCode?: string;
+  sector?: string;
+  /** Injectable for tests; defaults to global fetch. */
+  fetchImpl?: typeof fetch;
+  /** Injectable so tests don't actually sleep through backoff. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export class PlacesApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryable: boolean
+  ) {
+    super(message);
+    this.name = "PlacesApiError";
+  }
+}
+
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function componentOf(place: PlacesPlace, type: string): string | undefined {
+  return place.addressComponents?.find((c) => c.types?.includes(type))?.longText;
+}
+
+/**
+ * Maps a Places result to our record shape. Every field is copied only when
+ * Places actually returned it — nothing is inferred, and a missing website
+ * stays missing rather than becoming an empty string (§4).
+ */
+export function mapPlaceToRecord(place: PlacesPlace, sector?: string): RawBusinessRecord | null {
+  const name = place.displayName?.text?.trim();
+  if (!name) return null;
+
+  // Permanently closed businesses are not prospects (§18: descartar cerradas).
+  if (place.businessStatus === "CLOSED_PERMANENTLY") return null;
+
+  const record: RawBusinessRecord = { name, source: "google_places" };
+
+  if (place.id) record.gbp_place_id = place.id;
+  if (place.formattedAddress) record.address = place.formattedAddress;
+  if (place.internationalPhoneNumber) record.phone = place.internationalPhoneNumber;
+  if (place.websiteUri) record.website_url = place.websiteUri;
+  if (typeof place.rating === "number") record.rating = place.rating;
+  if (typeof place.userRatingCount === "number") record.review_count = place.userRatingCount;
+  if (typeof place.location?.latitude === "number") record.latitude = place.location.latitude;
+  if (typeof place.location?.longitude === "number") record.longitude = place.location.longitude;
+  if (place.primaryTypeDisplayName?.text) record.category = place.primaryTypeDisplayName.text;
+  if (sector) record.sector = sector;
+
+  const city = componentOf(place, "locality") ?? componentOf(place, "postal_town");
+  const region = componentOf(place, "administrative_area_level_2");
+  const country = componentOf(place, "country");
+  const postalCode = componentOf(place, "postal_code");
+  if (city) record.city = city;
+  if (region) record.region = region;
+  if (country) record.country = country;
+  if (postalCode) record.postal_code = postalCode;
+
+  return record;
+}
+
+/** True when Places returned no website field at all for this place. */
+export function placeHasNoWebsite(place: PlacesPlace): boolean {
+  return !place.websiteUri;
+}
+
 export class GooglePlacesBusinessSourceProvider implements BusinessSourceProvider {
   readonly id = "google_places" as const;
+
   get isActive() {
     return hasGooglePlaces;
   }
 
-  async discover(_params: DiscoveryParams): Promise<DiscoveryResult> {
+  /** Requests actually issued in the last discover() call — for cost tracking. */
+  lastRequestCount = 0;
+
+  private async requestPage(
+    body: Record<string, unknown>,
+    options: PlacesSearchOptions
+  ): Promise<PlacesResponse> {
+    const doFetch = options.fetchImpl ?? fetch;
+    const sleep = options.sleep ?? defaultSleep;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      this.lastRequestCount++;
+
+      const response = await doFetch(SEARCH_TEXT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": env.GOOGLE_PLACES_API_KEY!,
+          "X-Goog-FieldMask": FIELD_MASK,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) return (await response.json()) as PlacesResponse;
+
+      const retryable = RETRYABLE_STATUS.has(response.status);
+      if (!retryable || attempt === MAX_RETRIES) {
+        const detail = await response.text().catch(() => "");
+        throw new PlacesApiError(
+          `Places API respondió ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`,
+          response.status,
+          retryable
+        );
+      }
+
+      // Exponential backoff: 1s, 2s, 4s (§26).
+      await sleep(2 ** attempt * 1000);
+    }
+
+    throw new PlacesApiError("Places API: reintentos agotados", 0, true);
+  }
+
+  /**
+   * Runs one text query, following `nextPageToken` until `maxResults` is
+   * reached. Returns exactly what the API gave back — no padding, no
+   * synthesised entries.
+   */
+  async search(options: PlacesSearchOptions): Promise<DiscoveryResult> {
     if (!hasGooglePlaces) {
       throw new ProviderNotConfiguredError("Google Places API", ["GOOGLE_PLACES_API_KEY"]);
     }
 
-    // Intentionally not implemented against the live API yet: activating
-    // this path is a cost-bearing decision the user makes explicitly by
-    // setting the key. When they do, implement searchText pagination
-    // (pageSize<=20, follow pageToken) + optional Place Details enrichment
-    // here, using env.GOOGLE_PLACES_API_KEY.
-    throw new Error(
-      "GOOGLE_PLACES_API_KEY is set, but the live Places API call is not implemented yet " +
-        "— wire it up in lib/integrations/business-sources/google-places-provider.ts."
-    );
+    const maxResults = Math.max(1, options.maxResults ?? MAX_PAGE_SIZE);
+    const records: RawBusinessRecord[] = [];
+    const errors: DiscoveryResult["errors"] = [];
+    let pageToken: string | undefined;
+    let index = 0;
+
+    this.lastRequestCount = 0;
+
+    while (records.length < maxResults) {
+      const body: Record<string, unknown> = {
+        textQuery: options.query,
+        pageSize: Math.min(MAX_PAGE_SIZE, maxResults - records.length),
+        languageCode: options.languageCode ?? "es",
+        regionCode: options.regionCode ?? "ES",
+      };
+      if (pageToken) body.pageToken = pageToken;
+
+      const page = await this.requestPage(body, options);
+
+      for (const place of page.places ?? []) {
+        const record = mapPlaceToRecord(place, options.sector);
+        if (record) records.push(record);
+        else
+          errors.push({
+            row: index,
+            message: `Resultado descartado (sin nombre o cerrado permanentemente): ${place.id ?? "sin id"}`,
+          });
+        index++;
+      }
+
+      if (!page.nextPageToken) break;
+      pageToken = page.nextPageToken;
+    }
+
+    return { records: records.slice(0, maxResults), errors };
+  }
+
+  async discover(params: DiscoveryParams): Promise<DiscoveryResult> {
+    const parts = [params.sector, params.city && `en ${params.city}`].filter(Boolean);
+    if (parts.length === 0) {
+      throw new Error("Se necesita al menos sector o ciudad para buscar en Google Places.");
+    }
+
+    return this.search({
+      query: parts.join(" "),
+      maxResults: params.quantity,
+      languageCode: params.language,
+      sector: params.sector,
+    });
   }
 }

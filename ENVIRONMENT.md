@@ -19,11 +19,18 @@ default) so the UI is still demonstrable, but nothing persists.
 
 | Variable | Enables | Cost model |
 |---|---|---|
-| `GOOGLE_PLACES_API_KEY` | Automated business discovery beyond CSV import | Pay-per-use (Places API New). Requires GCP billing account. **Not enabled by default — explicit user decision.** |
+| `GOOGLE_PLACES_API_KEY` | Automated business discovery beyond CSV import (`places:searchText`, with pagination) | Pay-per-use (Places API New). The field mask requests `rating`/`userRatingCount`, which are Enterprise-tier SKU fields — 1,000 free calls/month, then billed. One call returns up to 20 businesses. Requires GCP billing. **Not enabled by default — explicit user decision.** |
 | `GOOGLE_PAGESPEED_API_KEY` | Real Core Web Vitals / Lighthouse-based performance scoring | Free tier (25,000 req/day), then quota-limited |
 | `ANTHROPIC_API_KEY` | AI Audit narratives, proposal copy, outreach messages | Pay-per-token, see Anthropic pricing |
 | `WEBFLOW_API_TOKEN` / `WEBFLOW_SITE_ID` | App-driven `WebflowService` (create/edit pages, CMS) outside of this MCP session | Webflow site plan + API access |
 | `N8N_WEBHOOK_URL` | Trigger external n8n automations | Depends on n8n hosting |
+
+### Capabilities that depend on the host, not on a key
+
+| Capability | Requirement | Behaviour when missing |
+|---|---|---|
+| Real mobile audit (`backend/scanner/mobile-audit.ts`) | Playwright + a Chromium binary on the host | Reports `status: "unavailable"` with the reason. It never guesses that a site is mobile-friendly. |
+| Website scanning (`backend/scanner/scan-website.ts`) | Outbound HTTP access to the target site | Returns `status: "failed"` with the error and empty result sections. |
 
 ## Internal / app config
 

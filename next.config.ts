@@ -36,6 +36,11 @@ const cspHeader = `
   .trim();
 
 const nextConfig: NextConfig = {
+  // Playwright drives a real browser from backend/scanner/mobile-audit.ts and
+  // must not be bundled: it is loaded at runtime only where a browser exists,
+  // and reports the audit as unavailable everywhere else.
+  serverExternalPackages: ["playwright"],
+
   async headers() {
     return [
       {

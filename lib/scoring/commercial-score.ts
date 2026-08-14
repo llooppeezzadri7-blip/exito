@@ -1,4 +1,5 @@
 import type { Business, Settings, WebsiteScan } from "@/lib/database/types";
+import { assessSeasonality, type SeasonalityRule } from "@/lib/research/seasonality";
 
 /**
  * Commercial opportunity model — the 7-factor score from the agency brief
@@ -63,6 +64,8 @@ export interface CommercialScoreInput {
   peers?: { review_count: number | null; rating: number | null }[];
   /** Injected for testability; defaults to now. */
   now?: Date;
+  /** Overrides the default seasonality rules (§22). */
+  seasonalityRules?: SeasonalityRule[];
 }
 
 const FACTOR_MAX: Record<CommercialFactorKey, number> = {
@@ -87,14 +90,6 @@ const FACTOR_LABELS: Record<CommercialFactorKey, string> = {
 
 /** Sectors whose customer lifetime value justifies a higher project budget. */
 const HIGH_TICKET_SECTORS = ["Clínicas dentales", "Hoteles", "Inmobiliarias", "Clínicas estéticas"];
-
-/** Costa Brava seasonality (§36): months when the sector is too busy to buy. */
-const PEAK_MONTHS_BY_SECTOR: Record<string, number[]> = {
-  Hoteles: [6, 7, 8],
-  Restaurantes: [6, 7, 8],
-  Campings: [6, 7, 8],
-  "Apartamentos turísticos": [6, 7, 8],
-};
 
 function factor(
   key: CommercialFactorKey,
@@ -332,9 +327,12 @@ function scoreCompetencia(
   ]);
 }
 
-function scoreUrgencia(business: Business, now: Date): CommercialFactor {
-  const sector = business.sector;
-  if (!sector) {
+function scoreUrgencia(
+  business: Business,
+  now: Date,
+  rules?: SeasonalityRule[]
+): CommercialFactor {
+  if (!business.sector) {
     return factor(
       "urgencia",
       0,
@@ -344,30 +342,21 @@ function scoreUrgencia(business: Business, now: Date): CommercialFactor {
     );
   }
 
-  const month = now.getMonth() + 1;
-  const peak = PEAK_MONTHS_BY_SECTOR[sector];
+  const assessment = assessSeasonality({
+    sector: business.sector,
+    locality: business.city,
+    date: now,
+    rules,
+  });
 
-  if (!peak) {
-    return factor("urgencia", 5, "PROBABLE", [
-      `${sector} no es un sector marcadamente estacional en la Costa Brava: se puede abordar todo el año.`,
-    ]);
+  const evidence = [assessment.reason];
+  if (assessment.matchedRule) {
+    evidence.push(`Regla de estacionalidad aplicada: ${assessment.matchedRule}.`);
   }
 
-  if (peak.includes(month)) {
-    return factor(
-      "urgencia",
-      2,
-      "PROBABLE",
-      [
-        `Temporada alta (mes ${month}) para ${sector}: está saturado y es mal momento para vender.`,
-        "Mejor momento: los meses previos a la temporada, para llegar preparado.",
-      ]
-    );
-  }
-
-  return factor("urgencia", 9, "PROBABLE", [
-    `Fuera de temporada alta (mes ${month}) para ${sector}: tiene tiempo para escuchar y margen para preparar la próxima campaña.`,
-  ]);
+  // Seasonality is a calendar inference about the sector, never an observation
+  // about this specific business — so it tops out at PROBABLE (§18).
+  return factor("urgencia", assessment.urgencyPoints, "PROBABLE", evidence);
 }
 
 function scoreAjuste(
@@ -464,7 +453,7 @@ function classify(score: number, confidence: number): CommercialTier {
 }
 
 export function computeCommercialScore(input: CommercialScoreInput): CommercialScoreResult {
-  const { business, scan, settings, peers, now = new Date() } = input;
+  const { business, scan, settings, peers, now = new Date(), seasonalityRules } = input;
 
   const ajuste = scoreAjuste(business, scan, settings);
 
@@ -474,7 +463,7 @@ export function computeCommercialScore(input: CommercialScoreInput): CommercialS
     scoreCapacidadPago(business),
     scoreFacilidadContacto(business),
     scoreCompetencia(business, peers),
-    scoreUrgencia(business, now),
+    scoreUrgencia(business, now, seasonalityRules),
     ajuste.factor,
   ];
 

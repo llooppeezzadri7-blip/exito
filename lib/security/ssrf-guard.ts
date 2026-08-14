@@ -80,17 +80,31 @@ function isBlockedIp(ip: string): boolean {
   return net.isIP(ip) === 6 ? isBlockedIpv6(ip) : isBlockedIpv4(ip);
 }
 
-async function assertSafeHost(hostname: string): Promise<void> {
+/**
+ * Test-only escape hatch. The scanner's own test suite serves fixture pages
+ * from 127.0.0.1, which the guard blocks by design. Callers must pass this
+ * explicitly — there is no env var or default that turns it on, so no
+ * production path can enable it by accident.
+ */
+export interface SafetyOptions {
+  allowLoopbackForTesting?: boolean;
+}
+
+async function assertSafeHost(hostname: string, options?: SafetyOptions): Promise<void> {
+  const loopbackAllowed = options?.allowLoopbackForTesting === true;
+
   // Reject literal IP targets that are already private, and resolve
   // hostnames to catch DNS rebinding / internal-only DNS entries.
   if (net.isIP(hostname)) {
     if (isBlockedIp(hostname)) {
+      if (loopbackAllowed && (hostname === "127.0.0.1" || hostname === "::1")) return;
       throw new UnsafeUrlError(`Target IP ${hostname} is not a public address`);
     }
     return;
   }
 
   if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    if (loopbackAllowed) return;
     throw new UnsafeUrlError("localhost is not allowed");
   }
 
@@ -112,7 +126,7 @@ async function assertSafeHost(hostname: string): Promise<void> {
   }
 }
 
-export async function assertSafeUrl(rawUrl: string): Promise<URL> {
+export async function assertSafeUrl(rawUrl: string, options?: SafetyOptions): Promise<URL> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -127,8 +141,14 @@ export async function assertSafeUrl(rawUrl: string): Promise<URL> {
     throw new UnsafeUrlError("Credentials in URL are not allowed");
   }
 
-  await assertSafeHost(url.hostname);
+  await assertSafeHost(url.hostname, options);
   return url;
+}
+
+export interface RedirectHop {
+  from: string;
+  to: string;
+  status: number;
 }
 
 export interface SafeFetchResult {
@@ -136,6 +156,11 @@ export interface SafeFetchResult {
   status: number;
   headers: Headers;
   body: string;
+  /** Every hop taken, so the scanner can report http→https upgrades (§6). */
+  redirects: RedirectHop[];
+  /** Wall-clock time to first byte of the final response, in ms. */
+  elapsedMs: number;
+  bodyBytes: number;
 }
 
 /**
@@ -146,11 +171,17 @@ export interface SafeFetchResult {
  */
 export async function fetchSafely(
   inputUrl: string,
-  init?: { timeoutMs?: number; maxBytes?: number; headers?: Record<string, string> }
+  init?: {
+    timeoutMs?: number;
+    maxBytes?: number;
+    headers?: Record<string, string>;
+  } & SafetyOptions
 ): Promise<SafeFetchResult> {
-  let currentUrl = await assertSafeUrl(inputUrl);
+  let currentUrl = await assertSafeUrl(inputUrl, init);
   const timeoutMs = init?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxBytes = init?.maxBytes ?? MAX_RESPONSE_BYTES;
+  const redirects: RedirectHop[] = [];
+  const startedAt = Date.now();
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount++) {
     const controller = new AbortController();
@@ -176,13 +207,22 @@ export async function fetchSafely(
       if (redirectCount === MAX_REDIRECTS) throw new UnsafeUrlError("Too many redirects");
 
       const nextUrl = new URL(location, currentUrl);
-      currentUrl = await assertSafeUrl(nextUrl.toString()); // re-validate every hop
+      redirects.push({ from: currentUrl.toString(), to: nextUrl.toString(), status: response.status });
+      currentUrl = await assertSafeUrl(nextUrl.toString(), init); // re-validate every hop
       continue;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      return { finalUrl: currentUrl.toString(), status: response.status, headers: response.headers, body: "" };
+      return {
+        finalUrl: currentUrl.toString(),
+        status: response.status,
+        headers: response.headers,
+        body: "",
+        redirects,
+        elapsedMs: Date.now() - startedAt,
+        bodyBytes: 0,
+      };
     }
 
     const chunks: Uint8Array[] = [];
@@ -198,8 +238,16 @@ export async function fetchSafely(
       chunks.push(value);
     }
 
-    const body = Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf-8");
-    return { finalUrl: currentUrl.toString(), status: response.status, headers: response.headers, body };
+    const buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+    return {
+      finalUrl: currentUrl.toString(),
+      status: response.status,
+      headers: response.headers,
+      body: buffer.toString("utf-8"),
+      redirects,
+      elapsedMs: Date.now() - startedAt,
+      bodyBytes: buffer.byteLength,
+    };
   }
 
   throw new UnsafeUrlError("Too many redirects");
