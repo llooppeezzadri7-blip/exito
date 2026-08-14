@@ -11,6 +11,12 @@ import { GenerateDemoButton } from "./GenerateDemoButton";
 import { DemoPreview } from "./DemoPreview";
 import { PipelineCard } from "./PipelineCard";
 import { formatCurrencyEUR } from "@/lib/utils/format";
+import {
+  computeCommercialScore,
+  TIER_LABELS,
+  type CommercialTier,
+  type VerificationStatus,
+} from "@/lib/scoring/commercial-score";
 import type { DemoContent } from "@/backend/demo-generator/generate-demo";
 
 const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_score"; label: string }[] = [
@@ -18,6 +24,21 @@ const SCORE_ROWS: { key: "opportunity_score" | "buying_intent_score" | "lead_sco
   { key: "buying_intent_score", label: "Buying Intent Score" },
   { key: "lead_score", label: "Lead Score" },
 ];
+
+const TIER_TONES: Record<CommercialTier, "good" | "warning" | "serious" | "critical" | "neutral"> = {
+  EXCEPCIONAL: "critical",
+  MUY_ALTA: "serious",
+  ALTA: "warning",
+  MEDIA: "neutral",
+  NO_PRIORITARIO: "neutral",
+  INVESTIGAR_MAS: "neutral",
+};
+
+const STATUS_TONES: Record<VerificationStatus, "good" | "warning" | "neutral"> = {
+  VERIFICADO: "good",
+  PROBABLE: "warning",
+  NO_VERIFICADO: "neutral",
+};
 
 const BREAKDOWN_LABELS: Record<string, string> = {
   website_quality: "Website Quality",
@@ -43,6 +64,17 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
   const activities = lead ? await repo.listLeadActivities(lead.id) : [];
   const proposal = await repo.getLatestProposalForBusiness(id);
   const demo = await repo.getLatestDemoForBusiness(id);
+
+  // Competitors for the §19 comparison: same sector and city, from what we
+  // already hold. Fewer than 3 and the factor reports NO_VERIFICADO rather
+  // than inventing a competitive gap.
+  const settings = await repo.getSettings();
+  const peers = business.sector
+    ? (await repo.listBusinesses({ sector: business.sector, city: business.city ?? undefined }))
+        .filter((b) => b.id !== business.id)
+        .map((b) => ({ review_count: b.review_count, rating: b.rating }))
+    : [];
+  const commercial = computeCommercialScore({ business, scan, settings, peers });
 
   return (
     <div className="space-y-6">
@@ -124,6 +156,62 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Oportunidad comercial</CardTitle>
+          <Badge tone={TIER_TONES[commercial.tier]}>{TIER_LABELS[commercial.tier]}</Badge>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+            <div>
+              <span className="text-2xl font-semibold tabular-nums">{commercial.score}</span>
+              <span className="text-sm text-text-secondary">/100</span>
+            </div>
+            <div className="text-sm text-text-secondary">
+              Evidencia disponible:{" "}
+              <span className="tabular-nums text-text-primary">
+                {Math.round(commercial.confidence * 100)}%
+              </span>{" "}
+              del modelo
+            </div>
+          </div>
+
+          {commercial.recommendedService ? (
+            <div className="rounded-lg border border-border-hairline bg-surface-2 p-3 text-sm">
+              <p className="text-xs text-text-muted">Servicio a proponer</p>
+              <p className="font-medium text-text-primary">{commercial.recommendedService}</p>
+              {commercial.recommendationReason && (
+                <p className="mt-1 text-text-secondary">{commercial.recommendationReason}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary">
+              Sin servicio recomendado: no hay un problema demostrado que encaje con lo que vendemos.
+            </p>
+          )}
+
+          <div className="space-y-3">
+            {commercial.factors.map((f) => (
+              <div key={f.key} className="border-b border-border-hairline pb-3 last:border-0 last:pb-0">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-text-primary">{f.label}</span>
+                  <Badge tone={STATUS_TONES[f.status]}>{f.status.replace("_", " ")}</Badge>
+                  <span className="ml-auto tabular-nums text-text-secondary">
+                    {f.points}/{f.max}
+                  </span>
+                </div>
+                <ul className="mt-1 space-y-0.5 text-xs text-text-secondary">
+                  {f.evidence.map((e) => (
+                    <li key={e}>· {e}</li>
+                  ))}
+                  {f.missing && <li className="text-status-warning">Falta comprobar: {f.missing}</li>}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
