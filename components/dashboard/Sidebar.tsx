@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Radar,
   LayoutDashboard,
   Building2,
   FileSearch,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils/cn";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/research", label: "Investigación de mercado", icon: Radar },
   { href: "/dashboard/prospects", label: "Prospectos", icon: Building2 },
   { href: "/dashboard/audits", label: "Auditorías", icon: FileSearch },
   { href: "/dashboard/reports", label: "Informes", icon: FileText },

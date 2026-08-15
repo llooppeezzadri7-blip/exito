@@ -88,6 +88,71 @@ test("settings page recalculates every stored score", async ({ page }) => {
   await expect(page.getByText(/Recalculadas \d+ puntuaci/)).toBeVisible();
 });
 
+test("market research page offers the full configuration form", async ({ page }) => {
+  await page.goto("/dashboard/research");
+
+  await expect(page.getByRole("heading", { name: "Investigación de mercado" })).toBeVisible();
+  // Located by field name: the labels wrap their control, so the accessible
+  // name concatenates the label and the option text.
+  await expect(page.locator('select[name="municipality"]')).toBeVisible();
+  await expect(page.locator('select[name="sector"]')).toBeVisible();
+  await expect(page.locator('select[name="subsector"]')).toBeVisible();
+  await expect(page.locator('input[name="maxBusinesses"]')).toBeVisible();
+
+  // The three depth presets from the brief.
+  await expect(page.getByText("Investigación rápida")).toBeVisible();
+  await expect(page.getByText("Investigación profunda")).toBeVisible();
+  await expect(page.getByText("Investigación completa")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Iniciar investigación/ })).toBeVisible();
+});
+
+test("subsector choices depend on the chosen sector", async ({ page }) => {
+  await page.goto("/dashboard/research");
+
+  const subsector = page.locator('select[name="subsector"]');
+  await expect(subsector).toBeDisabled();
+
+  await page.locator('select[name="sector"]').selectOption("Hostelería");
+  await expect(subsector).toBeEnabled();
+  await expect(subsector.locator("option", { hasText: "Restaurantes" })).toHaveCount(1);
+});
+
+test("without the Places key the run cannot start and the reason is explicit", async ({ page }) => {
+  // CI and this suite run with no secrets, which is exactly the no-API mode
+  // the brief requires to be honest rather than simulated (§15).
+  await page.goto("/dashboard/research");
+
+  await expect(page.getByText("Google Places API no configurada")).toBeVisible();
+  await expect(page.getByText(/GOOGLE_PLACES_API_KEY/).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Iniciar investigación/ })).toBeDisabled();
+});
+
+test("settings shows API status without ever revealing a key", async ({ page }) => {
+  await page.goto("/dashboard/settings");
+
+  await expect(page.getByRole("heading", { name: "APIs e integraciones" })).toBeVisible();
+  await expect(page.getByText("GOOGLE_PLACES_API_KEY")).toBeVisible();
+  await expect(page.getByText("No configurada").first()).toBeVisible();
+  await expect(page.getByText("La clave nunca se envía al navegador")).toBeVisible();
+});
+
+test("prospect detail shows the commercial score with evidence and competitors", async ({ page }) => {
+  await page.goto("/dashboard/prospects");
+  // Excluding /new: that link also matches the prefix and would land on the
+  // import form instead of a prospect.
+  await page
+    .locator("main a[href^='/dashboard/prospects/']:not([href$='/new'])")
+    .first()
+    .click();
+
+  await expect(page.getByText("Oportunidad comercial")).toBeVisible();
+  await expect(page.getByText("Necesidad", { exact: true })).toBeVisible();
+  await expect(page.getByText("Capacidad de pago")).toBeVisible();
+  await expect(page.getByText("Ajuste con nuestros servicios")).toBeVisible();
+  await expect(page.getByText(/del modelo/)).toBeVisible();
+  await expect(page.getByText("Competencia", { exact: true }).first()).toBeVisible();
+});
+
 test("new-prospect page renders the CSV import form", async ({ page }) => {
   await page.goto("/dashboard/prospects/new");
   await expect(page.locator("form")).toBeVisible();

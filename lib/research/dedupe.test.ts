@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dedupeBatch,
   findDuplicate,
+  identityDomain,
   normalizeAddress,
   normalizeName,
   normalizePhone,
@@ -43,6 +44,35 @@ describe("registrableDomain", () => {
   it("devuelve null ante basura en vez de adivinar", () => {
     expect(registrableDomain("no es una url")).toBeNull();
     expect(registrableDomain(null)).toBeNull();
+  });
+});
+
+describe("identityDomain", () => {
+  it("acepta un dominio propio como identidad", () => {
+    expect(identityDomain("https://www.canprova.es/carta")).toBe("canprova.es");
+  });
+
+  it("NO trata una plataforma compartida como identidad", () => {
+    // Dos negocios distintos pueden vivir en wixsite.com; fusionarlos sería
+    // inventar que son el mismo.
+    expect(identityDomain("https://negocio-a.wixsite.com/inicio")).toBeNull();
+    expect(identityDomain("https://otro.wordpress.com/")).toBeNull();
+    expect(identityDomain("https://www.facebook.com/negocio")).toBeNull();
+  });
+
+  it("NO trata una IP como identidad", () => {
+    expect(identityDomain("http://127.0.0.1:3000/uno")).toBeNull();
+    expect(identityDomain("http://185.10.20.30/tienda")).toBeNull();
+  });
+
+  it("no fusiona dos negocios alojados en la misma plataforma", () => {
+    const existing = [{ name: "Negocio A", website_url: "https://a.wixsite.com/a" }];
+    const match = findDuplicate(
+      { name: "Negocio B", website_url: "https://b.wixsite.com/b" },
+      existing
+    );
+
+    expect(match).toBeNull();
   });
 });
 

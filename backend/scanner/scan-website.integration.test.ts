@@ -110,6 +110,9 @@ describe("scanWebsite contra un servidor real", () => {
 
     expect(result.unavailableMetrics).toContain("full_site_broken_link_crawl");
     expect(result.unavailableMetrics).toContain("field_core_web_vitals");
+    // Sin GOOGLE_PAGESPEED_API_KEY, Lighthouse se declara no disponible en
+    // lugar de estimarse.
+    expect(result.unavailableMetrics).toContain("lighthouse_performance_score");
   });
 
   it("falla de forma segura ante un host inexistente, sin inventar datos", async () => {

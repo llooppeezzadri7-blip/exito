@@ -64,6 +64,55 @@ export function registrableDomain(raw: string | null | undefined): string | null
   return MULTI_PART_TLDS.has(lastTwo) ? parts.slice(-3).join(".") : lastTwo;
 }
 
+/**
+ * Hosts where the registrable domain identifies the *platform*, not the
+ * business: two different companies can sit on wixsite.com or wordpress.com
+ * and be told apart only by their path. Treating those as an identity would
+ * merge unrelated prospects into one — so for identity purposes they count
+ * as no domain at all. Bare IPs are included for the same reason.
+ */
+const MULTI_TENANT_HOSTS = new Set([
+  "wixsite.com",
+  "wordpress.com",
+  "blogspot.com",
+  "weebly.com",
+  "squarespace.com",
+  "myshopify.com",
+  "webnode.es",
+  "jimdosite.com",
+  "github.io",
+  "netlify.app",
+  "vercel.app",
+  "sites.google.com",
+  "business.site",
+  "negocio.site",
+  "facebook.com",
+  "instagram.com",
+  "linktr.ee",
+]);
+
+/**
+ * The domain only when it actually identifies one business. Returns null for
+ * shared platforms and IP literals, so `findDuplicate` never merges on them.
+ */
+export function identityDomain(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+
+  let hostname: string;
+  try {
+    hostname = new URL(raw.includes("://") ? raw : `https://${raw}`).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+
+  // An IP address is a server, not a brand.
+  if (/^[\d.]+$/.test(hostname) || hostname.includes(":")) return null;
+
+  const domain = registrableDomain(raw);
+  if (!domain) return null;
+  return MULTI_TENANT_HOSTS.has(domain) ? null : domain;
+}
+
 const BUSINESS_NOISE = [
   "restaurant",
   "restaurante",
@@ -131,7 +180,7 @@ export function findDuplicate<T extends DedupeCandidate>(
   existing: T[]
 ): DuplicateMatch<T> | null {
   const candidatePhone = normalizePhone(candidate.phone);
-  const candidateDomain = registrableDomain(candidate.website_url);
+  const candidateDomain = identityDomain(candidate.website_url);
   const candidateName = normalizeName(candidate.name);
   const candidateNumber = streetNumber(candidate.address);
   const candidateStreet = normalizeAddress(candidate.address);
@@ -149,7 +198,7 @@ export function findDuplicate<T extends DedupeCandidate>(
       return { existing: item, reason: "phone", confidence: "strong" };
     }
 
-    const itemDomain = registrableDomain(item.website_url);
+    const itemDomain = identityDomain(item.website_url);
     if (candidateDomain && itemDomain && candidateDomain === itemDomain) {
       return { existing: item, reason: "domain", confidence: "strong" };
     }

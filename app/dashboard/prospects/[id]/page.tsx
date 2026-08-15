@@ -72,9 +72,13 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
   const peers = business.sector
     ? (await repo.listBusinesses({ sector: business.sector, city: business.city ?? undefined }))
         .filter((b) => b.id !== business.id)
-        .map((b) => ({ review_count: b.review_count, rating: b.rating }))
     : [];
-  const commercial = computeCommercialScore({ business, scan, settings, peers });
+  const commercial = computeCommercialScore({
+    business,
+    scan,
+    settings,
+    peers: peers.map((b) => ({ review_count: b.review_count, rating: b.rating })),
+  });
 
   return (
     <div className="space-y-6">
@@ -210,6 +214,61 @@ export default async function ProspectDetailPage(props: PageProps<"/dashboard/pr
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Competencia</CardTitle>
+          <Badge tone={peers.length >= 3 ? "good" : "neutral"}>
+            {peers.length >= 3 ? "VERIFICADA" : "NO VERIFICADA"}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          {peers.length === 0 ? (
+            <EmptyState
+              title="Sin competidores en la base de datos"
+              description="La comparación necesita al menos 3 negocios del mismo sector y municipio. Importa o descubre más para poder calcular la brecha."
+            />
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-text-muted">
+                {peers.length >= 3
+                  ? `Comparado contra ${peers.length} competidores del mismo sector y municipio.`
+                  : `Solo ${peers.length} competidor(es) disponibles: por debajo de 3 la brecha competitiva se reporta como NO_VERIFICADO en lugar de estimarse.`}
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[34rem] text-xs">
+                  <thead>
+                    <tr className="border-b border-border-hairline text-left text-text-muted">
+                      <th className="py-1.5 pr-3 font-medium">Negocio</th>
+                      <th className="py-1.5 pr-3 font-medium">Municipio</th>
+                      <th className="py-1.5 pr-3 font-medium">Web</th>
+                      <th className="py-1.5 pr-3 font-medium">Valoración</th>
+                      <th className="py-1.5 font-medium">Reseñas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {peers.map((peer) => (
+                      <tr key={peer.id} className="border-b border-border-hairline">
+                        <td className="py-1.5 pr-3 text-text-primary">{peer.name}</td>
+                        <td className="py-1.5 pr-3 text-text-secondary">{peer.city ?? "—"}</td>
+                        <td className="py-1.5 pr-3 text-text-secondary">
+                          {peer.website_url ? "Sí" : "No detectada"}
+                        </td>
+                        <td className="py-1.5 pr-3 tabular-nums">{peer.rating ?? "—"}</td>
+                        <td className="py-1.5 tabular-nums">{peer.review_count ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-text-muted">
+                Señales utilizadas para la brecha: número de reseñas (mediana del grupo) y
+                valoración. Solo se comparan negocios del mismo sector y municipio.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -374,6 +433,22 @@ function AuditList({ title, items, tone }: { title: string; items: string[]; ton
 function formatScanValue(value: unknown): string {
   if (typeof value === "boolean") return value ? "Sí" : "No";
   if (value === null || value === undefined || value === "") return "—";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "ninguno";
+    return value
+      .map((entry) =>
+        entry && typeof entry === "object" ? Object.values(entry).join(" → ") : String(entry)
+      )
+      .join(", ");
+  }
+  if (typeof value === "object") {
+    // Nested groups (open_graph, redirect hops) would otherwise render as
+    // "[object Object]" and hide the very data the audit collected.
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => v !== null && v !== ""
+    );
+    return entries.length === 0 ? "—" : entries.map(([k, v]) => `${k}: ${String(v)}`).join(" · ");
+  }
   return String(value);
 }
 
