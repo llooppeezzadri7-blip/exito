@@ -229,3 +229,119 @@ describe("GooglePlacesBusinessSourceProvider", () => {
     });
   });
 });
+
+describe("protección contra bucles y gasto (§4)", () => {
+  const ORIGINAL = process.env.GOOGLE_PLACES_API_KEY;
+
+  beforeEach(() => {
+    process.env.GOOGLE_PLACES_API_KEY = "clave-de-prueba";
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    if (ORIGINAL === undefined) delete process.env.GOOGLE_PLACES_API_KEY;
+    else process.env.GOOGLE_PLACES_API_KEY = ORIGINAL;
+  });
+
+  async function freshProvider() {
+    const mod = await import("./google-places-provider");
+    return new mod.GooglePlacesBusinessSourceProvider();
+  }
+
+  it("se detiene si una página no aporta ningún resultado aprovechable", async () => {
+    const provider = await freshProvider();
+    // Todos los resultados se descartan (cerrados), pero la API sigue
+    // ofreciendo nextPageToken: sin guardia esto sería un bucle de pago.
+    const fetchImpl = vi.fn().mockImplementation(async () =>
+      jsonResponse({
+        places: [place({ businessStatus: "CLOSED_PERMANENTLY" })],
+        nextPageToken: "siempre-hay-mas",
+      })
+    );
+
+    const result = await provider.search({ query: "x", maxResults: 60, fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.records).toHaveLength(0);
+    expect(result.errors.some((e) => e.message.includes("se detiene la paginación"))).toBe(true);
+  });
+
+  it("se detiene si la API repite el mismo pageToken", async () => {
+    const provider = await freshProvider();
+    // Una Response nueva por llamada: su cuerpo solo puede leerse una vez.
+    const fetchImpl = vi
+      .fn()
+      .mockImplementation(async () =>
+        jsonResponse({ places: [place()], nextPageToken: "token-repetido" })
+      );
+
+    const result = await provider.search({ query: "x", maxResults: 60, fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.errors.some((e) => e.message.includes("repetido"))).toBe(true);
+  });
+
+  it("nunca supera el tope de páginas por consulta", async () => {
+    const provider = await freshProvider();
+    let counter = 0;
+    const fetchImpl = vi.fn().mockImplementation(async () => {
+      counter += 1;
+      return jsonResponse({
+        places: [place({ id: `p${counter}`, displayName: { text: `Negocio ${counter}` } })],
+        nextPageToken: `token-${counter}`,
+      });
+    });
+
+    await provider.search({ query: "x", maxResults: 10_000, fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+  });
+
+  it("nunca devuelve más resultados de los pedidos", async () => {
+    const provider = await freshProvider();
+    const fetchImpl = vi.fn().mockImplementation(async () =>
+      jsonResponse({
+        places: Array.from({ length: 20 }, (_, i) =>
+          place({ id: `p${i}`, displayName: { text: `Negocio ${i}` } })
+        ),
+      })
+    );
+
+    const result = await provider.search({ query: "x", maxResults: 10, fetchImpl });
+
+    expect(result.records).toHaveLength(10);
+  });
+
+  it("registra cada llamada sin guardar jamás la API key", async () => {
+    const { resetApiLog, listApiCalls } = await import("@/lib/research/api-log");
+    resetApiLog();
+
+    const provider = await freshProvider();
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ places: [place()] }));
+    await provider.search({ query: "x", fetchImpl });
+
+    const calls = listApiCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].provider).toBe("google_places");
+    expect(calls[0].operation).toBe("places:searchText");
+    expect(calls[0].ok).toBe(true);
+    expect(calls[0].resultCount).toBe(1);
+    expect(calls[0].estimatedCostUsd).toBeGreaterThan(0);
+    expect(JSON.stringify(calls)).not.toContain("clave-de-prueba");
+  });
+
+  it("registra también las llamadas fallidas, porque también se facturan", async () => {
+    const { resetApiLog, listApiCalls } = await import("@/lib/research/api-log");
+    resetApiLog();
+
+    const provider = await freshProvider();
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ error: "denied" }, 403));
+
+    await expect(provider.search({ query: "x", fetchImpl, sleep: async () => {} })).rejects.toThrow();
+
+    const calls = listApiCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].ok).toBe(false);
+    expect(calls[0].errorCode).toBe("403");
+  });
+});

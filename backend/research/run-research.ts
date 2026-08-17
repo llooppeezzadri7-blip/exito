@@ -230,10 +230,22 @@ export async function runResearch(options: RunResearchOptions): Promise<Research
     }
     return !match;
   });
-  progress.finish("dedupe", `${fresh.length} negocios únicos`);
+  // Hard cap (§1). Discovery already limits its own results, but the ceiling
+  // is restated here on the *unique* records that actually enter the
+  // pipeline, so no future change upstream can quietly widen it.
+  const capped = fresh.slice(0, config.maxBusinesses);
+  if (capped.length < fresh.length) {
+    issues.push({
+      businessName: null,
+      phase: "dedupe",
+      code: "MAX_BUSINESSES_REACHED",
+      message: `Límite de ${config.maxBusinesses} negocios alcanzado: ${fresh.length - capped.length} descartados sin analizar.`,
+    });
+  }
+  progress.finish("dedupe", `${capped.length} negocios únicos`);
 
   const imported = await repository.importBusinesses(
-    fresh.map(({ phone, website_url, address, city, gbp_place_id, ...rest }) => ({
+    capped.map(({ phone, website_url, address, city, gbp_place_id, ...rest }) => ({
       ...rest,
       ...(phone ? { phone } : {}),
       ...(website_url ? { website_url } : {}),

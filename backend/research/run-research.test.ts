@@ -358,3 +358,82 @@ describe("runResearch de extremo a extremo", () => {
     expect(mockStore.businesses).toHaveLength(0);
   }, 60_000);
 });
+
+describe("modo prueba controlada (§1, §6)", () => {
+  it("nunca deja pasar más negocios de los configurados, aunque lleguen más", async () => {
+    const repository = new MockAgencyRepository();
+    // El descubrimiento devuelve 25 negocios distintos pese al tope de 10.
+    const many = Array.from({ length: 25 }, (_, i) => ({
+      name: `Restaurante ${i}`,
+      source: "google_places" as const,
+      gbp_place_id: `place-${i}`,
+      phone: `+34 972 00 00 ${String(i).padStart(2, "0")}`,
+      city: "Blanes",
+      sector: "Restaurantes",
+    }));
+
+    const run = await runResearch({
+      config: { ...CONFIG, municipality: "Blanes", maxBusinesses: 10, depth: "rapida" },
+      repository,
+      discovery: discoveryReturning(many),
+    });
+
+    expect(run.results).toHaveLength(10);
+    expect(mockStore.businesses).toHaveLength(10);
+    expect(run.issues.some((i) => i.code === "MAX_BUSINESSES_REACHED")).toBe(true);
+  }, 60_000);
+
+  it("conserva el place_id de Google como identificador principal", async () => {
+    const repository = new MockAgencyRepository();
+
+    await runResearch({
+      config: { ...CONFIG, municipality: "Blanes", maxBusinesses: 10, depth: "rapida" },
+      repository,
+      discovery: discoveryReturning([
+        {
+          name: "Restaurant Blanes",
+          source: "google_places",
+          gbp_place_id: "ChIJ_blanes_real",
+          phone: "+34 972 33 44 55",
+          city: "Blanes",
+          sector: "Restaurantes",
+        },
+      ]),
+    });
+
+    expect(mockStore.businesses[0].gbp_place_id).toBe("ChIJ_blanes_real");
+    expect(mockStore.businesses[0].source).toBe("google_places");
+  }, 60_000);
+
+  it("no mezcla dos negocios parecidos del mismo pueblo", async () => {
+    const repository = new MockAgencyRepository();
+
+    const run = await runResearch({
+      config: { ...CONFIG, municipality: "Blanes", maxBusinesses: 10, depth: "rapida" },
+      repository,
+      discovery: discoveryReturning([
+        {
+          name: "Restaurant Mar Blau",
+          source: "google_places",
+          gbp_place_id: "ChIJ_uno",
+          phone: "+34 972 11 11 11",
+          address: "Passeig de Dintre, 10",
+          city: "Blanes",
+          sector: "Restaurantes",
+        },
+        {
+          name: "Restaurant Mar Blau II",
+          source: "google_places",
+          gbp_place_id: "ChIJ_dos",
+          phone: "+34 972 22 22 22",
+          address: "Avinguda Joan Carles I, 4",
+          city: "Blanes",
+          sector: "Restaurantes",
+        },
+      ]),
+    });
+
+    expect(run.results).toHaveLength(2);
+    expect(new Set(mockStore.businesses.map((b) => b.gbp_place_id)).size).toBe(2);
+  }, 60_000);
+});

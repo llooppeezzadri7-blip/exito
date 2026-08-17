@@ -1,4 +1,5 @@
 import { env, hasGooglePlaces } from "@/lib/config/env";
+import { recordApiCall } from "@/lib/research/api-log";
 import type { BusinessSourceProvider, DiscoveryParams, DiscoveryResult, RawBusinessRecord } from "./types";
 import { ProviderNotConfiguredError } from "./types";
 
@@ -37,6 +38,19 @@ const FIELD_MASK = [
 
 const MAX_PAGE_SIZE = 20;
 const MAX_RETRIES = 3;
+
+/**
+ * Hard ceiling on paid pages per query. Every page is a billed request, so
+ * pagination needs a stop that does not depend on the API behaving: a run
+ * must never be able to spend without bound because the response keeps
+ * handing back a nextPageToken.
+ */
+const MAX_PAGES_PER_QUERY = 5;
+
+/** Estimated USD per Text Search request. See ENVIRONMENT.md — the real SKU
+ * depends on the field mask and on the monthly free allowance, so this is an
+ * upper-bound ESTIMATE for pre-flight budgeting, never a billed figure. */
+export const PLACES_COST_PER_REQUEST_USD = 0.032;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 interface PlacesAddressComponent {
@@ -156,6 +170,7 @@ export class GooglePlacesBusinessSourceProvider implements BusinessSourceProvide
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       this.lastRequestCount++;
+      const startedAt = Date.now();
 
       const response = await doFetch(SEARCH_TEXT_URL, {
         method: "POST",
@@ -167,9 +182,32 @@ export class GooglePlacesBusinessSourceProvider implements BusinessSourceProvide
         body: JSON.stringify(body),
       });
 
-      if (response.ok) return (await response.json()) as PlacesResponse;
+      if (response.ok) {
+        const payload = (await response.json()) as PlacesResponse;
+        recordApiCall({
+          provider: "google_places",
+          operation: "places:searchText",
+          ok: true,
+          durationMs: Date.now() - startedAt,
+          resultCount: payload.places?.length ?? 0,
+          estimatedCostUsd: PLACES_COST_PER_REQUEST_USD,
+          errorCode: null,
+        });
+        return payload;
+      }
 
       const retryable = RETRYABLE_STATUS.has(response.status);
+      recordApiCall({
+        provider: "google_places",
+        operation: "places:searchText",
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        resultCount: null,
+        // A rejected request is still a request against the quota.
+        estimatedCostUsd: PLACES_COST_PER_REQUEST_USD,
+        errorCode: String(response.status),
+      });
+
       if (!retryable || attempt === MAX_RETRIES) {
         const detail = await response.text().catch(() => "");
         throw new PlacesApiError(
@@ -204,7 +242,16 @@ export class GooglePlacesBusinessSourceProvider implements BusinessSourceProvide
 
     this.lastRequestCount = 0;
 
-    while (records.length < maxResults) {
+    // Three independent stops, because each page is money and none of them
+    // may depend on the API behaving well:
+    //   1. the requested number of results is reached,
+    //   2. a hard page ceiling,
+    //   3. a page that adds nothing new (all filtered out, or empty), which
+    //      would otherwise loop forever since records.length never grows,
+    //   4. a repeated pageToken, which is the same loop by another route.
+    const seenTokens = new Set<string>();
+
+    for (let page = 0; page < MAX_PAGES_PER_QUERY && records.length < maxResults; page++) {
       const body: Record<string, unknown> = {
         textQuery: options.query,
         pageSize: Math.min(MAX_PAGE_SIZE, maxResults - records.length),
@@ -213,9 +260,10 @@ export class GooglePlacesBusinessSourceProvider implements BusinessSourceProvide
       };
       if (pageToken) body.pageToken = pageToken;
 
-      const page = await this.requestPage(body, options);
+      const response = await this.requestPage(body, options);
+      const before = records.length;
 
-      for (const place of page.places ?? []) {
+      for (const place of response.places ?? []) {
         const record = mapPlaceToRecord(place, options.sector);
         if (record) records.push(record);
         else
@@ -226,8 +274,25 @@ export class GooglePlacesBusinessSourceProvider implements BusinessSourceProvide
         index++;
       }
 
-      if (!page.nextPageToken) break;
-      pageToken = page.nextPageToken;
+      if (records.length === before) {
+        errors.push({
+          row: index,
+          message: "Página sin resultados aprovechables: se detiene la paginación para no seguir gastando peticiones.",
+        });
+        break;
+      }
+
+      if (!response.nextPageToken) break;
+      if (seenTokens.has(response.nextPageToken)) {
+        errors.push({
+          row: index,
+          message: "La API devolvió un pageToken repetido: paginación detenida.",
+        });
+        break;
+      }
+
+      seenTokens.add(response.nextPageToken);
+      pageToken = response.nextPageToken;
     }
 
     return { records: records.slice(0, maxResults), errors };

@@ -9,6 +9,8 @@ import { COSTA_BRAVA_MUNICIPALITIES, COSTA_BRAVA_SECTORS } from "@/lib/research/
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
+import { CostPreview } from "./CostPreview";
+import { DEFAULT_COST_LIMIT_USD, estimateResearchCost } from "@/lib/research/cost-estimate";
 
 const DEPTH_ORDER: ResearchDepth[] = ["rapida", "profunda", "completa"];
 
@@ -23,6 +25,15 @@ export function ResearchForm({ placesConfigured }: { placesConfigured: boolean }
   );
   const [sector, setSector] = useState("");
   const [depth, setDepth] = useState<ResearchDepth>("profunda");
+  const [municipality, setMunicipality] = useState("Blanes");
+  const [maxBusinesses, setMaxBusinesses] = useState(10);
+  const [confirmedOverLimit, setConfirmedOverLimit] = useState(false);
+
+  const estimate = estimateResearchCost(
+    { municipality, depth, maxBusinesses },
+    { limitUsd: DEFAULT_COST_LIMIT_USD }
+  );
+  const blockedByCost = estimate.exceedsLimit && !confirmedOverLimit;
 
   const subsectors = useMemo(
     () => COSTA_BRAVA_SECTORS.find((s) => s.name === sector)?.subsectors ?? [],
@@ -42,7 +53,12 @@ export function ResearchForm({ placesConfigured }: { placesConfigured: boolean }
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1.5">
             <span className="text-xs text-text-muted">Municipio</span>
-            <select name="municipality" defaultValue="Lloret de Mar" className={fieldClass}>
+            <select
+              name="municipality"
+              value={municipality}
+              onChange={(e) => setMunicipality(e.target.value)}
+              className={fieldClass}
+            >
               {COSTA_BRAVA_MUNICIPALITIES.map((m) => (
                 <option key={m.name} value={m.name}>
                   {m.name} ({m.comarca})
@@ -87,7 +103,8 @@ export function ResearchForm({ placesConfigured }: { placesConfigured: boolean }
             <input
               type="number"
               name="maxBusinesses"
-              defaultValue={20}
+              value={maxBusinesses}
+              onChange={(e) => setMaxBusinesses(Number(e.target.value))}
               min={1}
               max={60}
               className={cn(fieldClass, "tabular-nums")}
@@ -133,10 +150,19 @@ export function ResearchForm({ placesConfigured }: { placesConfigured: boolean }
         </CardContent>
       </Card>
 
+      <CostPreview
+        municipality={municipality}
+        depth={depth}
+        maxBusinesses={maxBusinesses}
+        limitUsd={DEFAULT_COST_LIMIT_USD}
+        confirmed={confirmedOverLimit}
+        onConfirmChange={setConfirmedOverLimit}
+      />
+
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={pending || !placesConfigured}
+          disabled={pending || !placesConfigured || blockedByCost}
           className={buttonVariants({ size: "md" })}
         >
           {pending ? "Iniciando..." : "🚀 Iniciar investigación"}
@@ -144,6 +170,11 @@ export function ResearchForm({ placesConfigured }: { placesConfigured: boolean }
         {!placesConfigured && (
           <span className="text-xs text-status-warning">
             Necesita GOOGLE_PLACES_API_KEY para descubrir negocios reales.
+          </span>
+        )}
+        {blockedByCost && (
+          <span className="text-xs text-status-critical">
+            Confirma el exceso de coste para poder lanzarla.
           </span>
         )}
         {state.error && <span className="text-xs text-status-critical">{state.error}</span>}

@@ -9,6 +9,7 @@ import type { ProgressStep, ResearchRunRecord } from "@/backend/research/types";
 import { hasGooglePlaces } from "@/lib/config/env";
 import { checkRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { COSTA_BRAVA_MUNICIPALITIES } from "@/lib/research/costa-brava";
+import { DEFAULT_COST_LIMIT_USD, estimateResearchCost } from "@/lib/research/cost-estimate";
 import type { StartResearchState } from "./state";
 
 const MAX_BUSINESSES = 60;
@@ -61,6 +62,16 @@ export async function startResearch(
 
   const parsed = parseConfig(formData);
   if ("error" in parsed) return { error: parsed.error, runId: null };
+
+  // Enforced here as well as in the form: a server action is reachable by a
+  // direct POST, so a client-side guard alone would not actually cap spend.
+  const estimate = estimateResearchCost(parsed, { limitUsd: DEFAULT_COST_LIMIT_USD });
+  if (estimate.exceedsLimit && formData.get("confirmOverLimit") !== "on") {
+    return {
+      error: `El coste estimado (${estimate.estimatedCostUsd.toFixed(3)} $) supera el límite de ${estimate.limitUsd.toFixed(2)} $. Marca la confirmación para ejecutarla igualmente.`,
+      runId: null,
+    };
+  }
 
   const repository = await getRepository();
   const id = createRunId();
