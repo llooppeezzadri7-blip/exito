@@ -1,5 +1,5 @@
 import type { CommercialFactor, CommercialTier } from "@/lib/scoring/commercial-score";
-import type { Evidence } from "@/lib/research/evidence";
+import type { Evidence, VerificationStatus } from "@/lib/research/evidence";
 import type { MobileAuditResult } from "@/backend/scanner/mobile-audit";
 import type { CandidateAssessment } from "@/lib/research/website-resolver";
 
@@ -132,6 +132,9 @@ export interface ResearchResultItem {
   mobileAudit: MobileAuditResult | null;
   competitors: CompetitorSnapshot[];
   competitorsVerified: boolean;
+  /** Identity confidence from corroboration, carried through for triage (§4). */
+  verificationStatus: VerificationStatus;
+  corroboratingSources: string[];
   secondResearch: SecondResearchOutcome | null;
   /** Phases that failed for this specific business (§13). */
   failedPhases: string[];

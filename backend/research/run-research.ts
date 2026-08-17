@@ -587,6 +587,8 @@ export async function runResearch(options: RunResearchOptions): Promise<Research
         mobileAudit: mobile,
         competitors,
         competitorsVerified: competitors.length >= 3,
+        verificationStatus: business.verification_status,
+        corroboratingSources: business.corroborating_sources ?? [],
         secondResearch: null,
         failedPhases: failedPhases.get(business.id) ?? [],
       });

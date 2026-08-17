@@ -129,6 +129,30 @@ test("discovery needs no credentials and the corroboration rule is stated", asyn
   await expect(page.getByRole("button", { name: /Iniciar investigación/ })).toBeEnabled();
 });
 
+test("the planner proposes a plan and justifies every target without running it", async ({ page }) => {
+  await page.goto("/dashboard/research");
+  await page.getByRole("link", { name: "Ver el plan que propone" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/research\/plan$/);
+
+  // Nothing is planned until asked: the page opens with just the goal form.
+  await expect(page.getByRole("heading", { name: "Plan de investigación" })).toBeVisible();
+  await expect(page.getByText("Objetivos, en orden de ejecución")).toHaveCount(0);
+
+  await page.locator('select[name="municipality"]').selectOption("Blanes");
+  await page.locator('select[name="sector"]').selectOption("Hostelería");
+  await page.getByRole("button", { name: "Generar plan" }).click();
+
+  await expect(page.getByText("Objetivos, en orden de ejecución")).toBeVisible();
+  await expect(page.getByText("Restaurantes en Blanes", { exact: false }).first()).toBeVisible();
+
+  // With no history, the planner must say so rather than invent a statistic.
+  await expect(page.getByText("Sin historial suficiente").first()).toBeVisible();
+  await expect(page.getByText(/Todavía no hay evidencia histórica suficiente/).first()).toBeVisible();
+
+  // And it must be explicit that nothing has been executed.
+  await expect(page.getByText(/Nada de esto se ha ejecutado/)).toBeVisible();
+});
+
 test("settings shows API status without ever revealing a key", async ({ page }) => {
   await page.goto("/dashboard/settings");
 

@@ -45,6 +45,27 @@ export default async function ResearchPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Planificador autónomo</CardTitle>
+          <Badge tone="neutral">Solo propuesta</Badge>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-text-secondary">
+          <p>
+            En lugar de configurar cada búsqueda a mano, puedes darle un objetivo y dejar que el
+            sistema decida qué municipios y subsectores investigar, en qué orden y con qué criterios
+            de parada. Cada decisión llega con su fundamento: o cita observaciones anteriores con su
+            tamaño de muestra, o dice abiertamente que todavía no hay historial.
+          </p>
+          <Link
+            href="/dashboard/research/plan"
+            className="inline-block rounded-lg border border-border-hairline px-4 py-2 text-sm text-text-primary hover:bg-surface-2"
+          >
+            Ver el plan que propone
+          </Link>
+        </CardContent>
+      </Card>
+
       <ResearchForm />
 
       <Card>
