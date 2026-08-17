@@ -43,6 +43,7 @@ test("sidebar navigates across every dashboard section without error", async ({ 
     ["Demos", /\/dashboard\/demos$/],
     ["Propuestas", /\/dashboard\/proposals$/],
     ["Pipeline", /\/dashboard\/pipeline$/],
+    ["Memoria", /\/dashboard\/memory$/],
     ["Configuración", /\/dashboard\/settings$/],
   ];
 
@@ -152,6 +153,17 @@ test("prospect detail shows the commercial score with evidence and competitors",
   await expect(page.getByText("Ajuste con nuestros servicios")).toBeVisible();
   await expect(page.getByText(/del modelo/)).toBeVisible();
   await expect(page.getByText("Competencia", { exact: true }).first()).toBeVisible();
+});
+
+test("memory page shows what the system learned and what it may not change", async ({ page }) => {
+  await page.goto("/dashboard/memory");
+
+  await expect(page.getByRole("heading", { name: "Memoria y aprendizaje" })).toBeVisible();
+  await expect(page.getByText("Estado de la memoria")).toBeVisible();
+  await expect(page.getByText("Rendimiento de las fuentes")).toBeVisible();
+  await expect(page.getByText("Reglas que el aprendizaje no puede tocar")).toBeVisible();
+  // The hard constraints must be visible, not buried in code.
+  await expect(page.getByText(/NO_VERIFICADO, nunca se rellena/)).toBeVisible();
 });
 
 test("new-prospect page renders the CSV import form", async ({ page }) => {

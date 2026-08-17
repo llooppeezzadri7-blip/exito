@@ -10,6 +10,7 @@ import { computeScores } from "@/lib/scoring/compute-scores";
 import { scanWebsite, type ScanOptions } from "@/backend/scanner/scan-website";
 import { auditMobile } from "@/backend/scanner/mobile-audit";
 import { fact, observation, type Evidence } from "@/lib/research/evidence";
+import { recordEvent, recordSourceQuery } from "@/lib/memory/research-memory";
 import type {
   CompetitorSnapshot,
   ProgressStep,
@@ -53,6 +54,8 @@ export interface DiscoveryPort {
 export interface RunResearchOptions {
   config: ResearchConfig;
   repository: AgencyRepository;
+  /** Ties every memory event to the run that produced it. */
+  runId?: string;
   /** Injectable so tests can drive the pipeline with controlled data. */
   discovery?: DiscoveryPort;
   onProgress?: (steps: ProgressStep[]) => void;
@@ -129,7 +132,7 @@ function toCandidate(url: string | null | undefined): WebsiteCandidate[] {
 }
 
 export async function runResearch(options: RunResearchOptions): Promise<ResearchRunRecord> {
-  const { config, repository, onProgress } = options;
+  const { config, repository, onProgress, runId } = options;
   const now = options.now ?? (() => new Date());
   const preset = DEPTH_PRESETS[config.depth];
   const issues: ResearchIssue[] = [];
@@ -191,6 +194,26 @@ export async function runResearch(options: RunResearchOptions): Promise<Research
 
       // Corroboration decides identity confidence; discovery only reports it.
       discovered = result.businesses.map((entry) => entry.record);
+
+      // Memory (FASE 1): what each source actually produced, so the learning
+      // engine measures real yield instead of assumptions.
+      for (const report of result.reports) {
+        recordSourceQuery(
+          {
+            source: report.source as never,
+            municipality: config.municipality,
+            sector: config.sector ?? null,
+            category: config.subsector ?? null,
+            returned: report.records,
+            usable: report.usable,
+            ok: report.ok,
+            durationMs: report.durationMs,
+            error: report.error,
+          },
+          { runId: runId ?? null }
+        );
+      }
+
       for (const report of result.reports) {
         if (!report.ok) {
           issues.push({
@@ -528,6 +551,24 @@ export async function runResearch(options: RunResearchOptions): Promise<Research
           }),
         ]);
       }
+
+      recordEvent({
+        type: "CONCLUSION_REACHED",
+        runId: runId ?? null,
+        businessId: business.id,
+        businessName: business.name,
+        municipality: business.city,
+        sector: business.sector,
+        source: business.source,
+        summary: `Puntuado ${commercial.score}/100 con ${Math.round(commercial.confidence * 100)}% de evidencia (${commercial.tier}).`,
+        data: {
+          score: commercial.score,
+          confidence: commercial.confidence,
+          tier: commercial.tier,
+          recommendedService: commercial.recommendedService,
+          factors: commercial.factors.map((f) => ({ key: f.key, points: f.points, status: f.status })),
+        },
+      });
 
       results.push({
         businessId: business.id,

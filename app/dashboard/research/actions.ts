@@ -86,6 +86,7 @@ export async function startResearch(
   void runResearch({
     config: parsed,
     repository,
+    runId: id,
     onProgress: (steps: ProgressStep[]) => {
       const current = getRun(id);
       if (current) saveRun({ ...current, steps });

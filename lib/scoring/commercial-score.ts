@@ -1,4 +1,4 @@
-import type { Business, Settings, WebsiteScan } from "@/lib/database/types";
+import type { Business, BusinessSource, Settings, WebsiteScan } from "@/lib/database/types";
 import { assessSeasonality, type SeasonalityRule } from "@/lib/research/seasonality";
 
 /**
@@ -110,43 +110,119 @@ function factor(
 }
 
 /**
- * Whether a null `website_url` is evidence of "has no website" or merely
- * "we never collected it".
+ * Which sources make "no website" a claim rather than a gap.
  *
- * This used to be true for Google Places, which returns the website field on
- * every place, so a null there was a real absence. With Places removed there
- * is currently NO source that carries that guarantee:
+ * The distinction the whole rule rests on: a source only *asserts* absence if
+ * its schema has a website field that was left empty. A source that simply
+ * does not carry the field says nothing at all.
  *
- *   - OpenStreetMap is community-mapped. A missing `website` tag means nobody
- *     mapped it, not that the business has no site. Treating it as evidence
- *     would reproduce, at scale, exactly the error made with Smile Dentik and
- *     El Gaucho.
- *   - The tourism register publishes the field, but only for accommodation.
- *
- * So this returns false for every source: absence is never evidence today.
- * The effect is conservative — the Necesidad factor reports NO_VERIFICADO
- * instead of awarding 25 points — which can only lower scores, never inflate
- * them. The corroboration-based replacement is drafted in
- * AUTONOMOUS-DISCOVERY.md §5 and is NOT applied pending explicit approval,
- * because it moves scores.
+ *   - `turisme_cat`: the official registration form includes the web field,
+ *     so an empty value is a real absence declared by the business itself.
+ *   - `openstreetmap`: community-mapped. A missing `website` tag means nobody
+ *     mapped it. Treating that as absence would reproduce, at scale, exactly
+ *     the Smile Dentik and El Gaucho errors.
+ *   - CSV/manual/directory/website: a blank column is not a statement.
  */
-function websiteAbsenceIsEvidence(_business: Business): boolean {
-  return false;
+const SOURCE_ASSERTS_WEBSITE_ABSENCE: Record<BusinessSource, boolean> = {
+  turisme_cat: true,
+  openstreetmap: false,
+  csv_import: false,
+  manual: false,
+  directory: false,
+  website: false,
+};
+
+export interface WebsiteAbsenceEvidence {
+  status: VerificationStatus;
+  /** Distinct sources that positively assert the business has no website. */
+  assertedBy: BusinessSource[];
+  /** Share of the factor's points this evidence supports (0-1). */
+  weightFraction: number;
+  explanation: string;
+}
+
+/**
+ * Grades the claim "this business has no website" (approved rule):
+ *
+ *   2+ independent asserting sources → VERIFICADO, full points
+ *   1 asserting source               → PROBABLE, partial points
+ *   sources contradict each other    → NO_VERIFICADO
+ *   nothing asserts it               → NO_VERIFICADO, no points
+ *
+ * The same source appearing twice is collapsed: corroboration means
+ * independent sources, not repeated readings.
+ */
+export function gradeWebsiteAbsence(business: Business): WebsiteAbsenceEvidence {
+  // Contradictory sources are resolved before anything is concluded.
+  if (business.verification_status === "NO_VERIFICADO") {
+    return {
+      status: "NO_VERIFICADO",
+      assertedBy: [],
+      weightFraction: 0,
+      explanation:
+        "Las fuentes se contradicen sobre este negocio: no se concluye nada sobre su web hasta resolverlo.",
+    };
+  }
+
+  const assertedBy = [...new Set(business.corroborating_sources)].filter(
+    (source) => SOURCE_ASSERTS_WEBSITE_ABSENCE[source]
+  );
+
+  if (assertedBy.length >= 2) {
+    return {
+      status: "VERIFICADO",
+      assertedBy,
+      weightFraction: 1,
+      explanation: `${assertedBy.length} fuentes independientes que publican el campo web lo devuelven vacío (${assertedBy.join(", ")}): el negocio no tiene web propia.`,
+    };
+  }
+
+  if (assertedBy.length === 1) {
+    return {
+      status: "PROBABLE",
+      assertedBy,
+      // Half the factor: one source is a real indication, not a confirmation.
+      weightFraction: 0.5,
+      explanation: `${assertedBy[0]} publica el campo web y lo devuelve vacío. Una sola fuente: indicio, no confirmación.`,
+    };
+  }
+
+  return {
+    status: "NO_VERIFICADO",
+    assertedBy: [],
+    weightFraction: 0,
+    explanation:
+      "Ninguna fuente que publique el campo web ha informado sobre este negocio. Que no conste una web no significa que no la tenga.",
+  };
 }
 
 function scoreNecesidad(business: Business, scan: WebsiteScan | null): CommercialFactor {
   if (!business.website_url) {
-    return websiteAbsenceIsEvidence(business)
-      ? factor("necesidad", 25, "VERIFICADO", [
-          "Google Places no devuelve web para esta ficha: el negocio no tiene sitio propio.",
-        ])
-      : factor(
-          "necesidad",
-          0,
-          "NO_VERIFICADO",
-          ["No consta web en nuestros datos, pero el origen (importación manual/CSV) no prueba que no exista."],
-          "Buscar el negocio en Google y Maps antes de afirmar que no tiene web."
-        );
+    const absence = gradeWebsiteAbsence(business);
+    const maxPoints = FACTOR_MAX.necesidad;
+
+    if (absence.status === "NO_VERIFICADO") {
+      return factor(
+        "necesidad",
+        0,
+        "NO_VERIFICADO",
+        [absence.explanation],
+        "Comprobar con una segunda fuente que publique el campo web, o buscar el negocio directamente."
+      );
+    }
+
+    return factor(
+      "necesidad",
+      maxPoints * absence.weightFraction,
+      absence.status,
+      [
+        absence.explanation,
+        `Fuentes que lo afirman: ${absence.assertedBy.join(", ")}.`,
+      ],
+      absence.status === "PROBABLE"
+        ? "Falta una segunda fuente independiente para confirmarlo."
+        : undefined
+    );
   }
 
   if (!scan) {
@@ -384,14 +460,35 @@ function scoreAjuste(
   const pick = (needle: string) => services.find((s) => s.toLowerCase().includes(needle));
 
   // §15: the recommendation follows the dominant problem, never a default.
-  if (!business.website_url && websiteAbsenceIsEvidence(business)) {
+  if (!business.website_url) {
+    const absence = gradeWebsiteAbsence(business);
+    if (absence.status === "NO_VERIFICADO") {
+      return {
+        factor: factor(
+          "ajuste_servicios",
+          0,
+          "NO_VERIFICADO",
+          [absence.explanation],
+          "Confirmar si realmente no tiene web antes de proponer construirla."
+        ),
+        service: null,
+        reason: null,
+      };
+    }
+
     const service = pick("web") ?? null;
     return {
-      factor: factor("ajuste_servicios", 10, "VERIFICADO", [
-        "No tiene web y nuestro servicio principal es construirla: encaje directo.",
-      ]),
+      factor: factor(
+        "ajuste_servicios",
+        FACTOR_MAX.ajuste_servicios * absence.weightFraction,
+        absence.status,
+        [`Sin web propia (${absence.assertedBy.join(", ")}): encaje directo con construirla.`]
+      ),
       service,
-      reason: "El negocio no tiene sitio propio: lo primero es dárselo.",
+      reason:
+        absence.status === "VERIFICADO"
+          ? "El negocio no tiene sitio propio: lo primero es dárselo."
+          : "Todo indica que no tiene sitio propio, pendiente de confirmar con una segunda fuente.",
     };
   }
 

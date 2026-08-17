@@ -77,7 +77,7 @@ describe("regla anti-invención", () => {
 
     expect(necesidad.status).toBe("NO_VERIFICADO");
     expect(necesidad.points).toBe(0);
-    expect(necesidad.missing).toContain("Buscar el negocio en Google");
+    expect(necesidad.missing).toContain("segunda fuente");
   });
 
   it("tampoco lo trata como prueba viniendo de OpenStreetMap: un tag sin mapear no es una ausencia", () => {

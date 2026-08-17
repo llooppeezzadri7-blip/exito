@@ -19,8 +19,11 @@ export interface DiscoverySourceReport {
   source: string;
   ok: boolean;
   records: number;
+  /** Records that survived corroboration — the number that actually matters. */
+  usable: number;
   error: string | null;
   costUsd: number;
+  durationMs: number;
 }
 
 export interface AutonomousDiscoveryResult {
@@ -54,6 +57,7 @@ export async function discoverBusinesses(
 
   // --- OpenStreetMap ---
   if (options.category) {
+    const startedAt = Date.now();
     try {
       const result = await overpass.search({
         municipality: options.municipality,
@@ -66,16 +70,20 @@ export async function discoverBusinesses(
         source: "openstreetmap",
         ok: true,
         records: result.records.length,
+        usable: 0,
         error: null,
         costUsd: 0,
+        durationMs: Date.now() - startedAt,
       });
     } catch (err) {
       reports.push({
         source: "openstreetmap",
         ok: false,
         records: 0,
+        usable: 0,
         error: err instanceof Error ? err.message : "Overpass no respondió",
         costUsd: 0,
+        durationMs: Date.now() - startedAt,
       });
     }
   } else {
@@ -83,8 +91,10 @@ export async function discoverBusinesses(
       source: "openstreetmap",
       ok: false,
       records: 0,
+      usable: 0,
       error: "Sin subsector no se puede elegir la etiqueta OSM: no se consulta en vez de adivinar.",
       costUsd: 0,
+      durationMs: 0,
     });
   }
 
@@ -92,6 +102,7 @@ export async function discoverBusinesses(
   // Only accommodation is in this register; querying it for a hairdresser
   // would return nothing and imply an absence that means nothing.
   if (options.includeTourismRegister) {
+    const startedAt = Date.now();
     try {
       const result = await turismeCat.search({
         municipality: options.municipality,
@@ -103,21 +114,33 @@ export async function discoverBusinesses(
         source: "turisme_cat",
         ok: true,
         records: result.records.length,
+        usable: 0,
         error: null,
         costUsd: 0,
+        durationMs: Date.now() - startedAt,
       });
     } catch (err) {
       reports.push({
         source: "turisme_cat",
         ok: false,
         records: 0,
+        usable: 0,
         error: err instanceof Error ? err.message : "El registro de turismo no respondió",
         costUsd: 0,
+        durationMs: Date.now() - startedAt,
       });
     }
   }
 
   const { businesses, summary } = corroborate(all);
+
+  // Attribute the corroborated survivors back to the sources that found them,
+  // so learning measures usable yield rather than raw volume.
+  for (const report of reports) {
+    report.usable = businesses.filter((entry) =>
+      entry.sources.includes(report.source as never)
+    ).length;
+  }
 
   return { businesses, reports, errors, summary };
 }
