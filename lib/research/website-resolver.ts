@@ -20,7 +20,7 @@ import { fact, unverified, verified, type Evidence, type MaybeDataPoint } from "
  */
 
 export type CandidateOrigin =
-  | "google_places"
+  | "open_data"
   | "social_profile_link"
   | "search_result"
   | "manual";
@@ -242,11 +242,12 @@ export async function resolveOfficialWebsite(
     };
   }
 
-  // One domain, corroborated. Prefer the Places-supplied URL when present,
-  // since it comes from the owner's own Google listing.
+  // One domain, corroborated. Prefer a URL that came from an open-data
+  // source: those publish the field the business itself registered, which is
+  // stronger than a URL guessed from a search result.
   const best = [...corroborated].sort((a, b) => {
-    if (a.origin === "google_places" && b.origin !== "google_places") return -1;
-    if (b.origin === "google_places" && a.origin !== "google_places") return 1;
+    if (a.origin === "open_data" && b.origin !== "open_data") return -1;
+    if (b.origin === "open_data" && a.origin !== "open_data") return 1;
     return b.matchScore - a.matchScore;
   })[0];
 
@@ -263,7 +264,7 @@ export async function resolveOfficialWebsite(
   return {
     website: verified({
       value: best.url,
-      source: best.origin === "google_places" ? "google_places" : "official_website",
+      source: best.origin === "open_data" ? "openstreetmap" : "official_website",
       method: "cross_reference",
       sourceUrl: best.url,
       status: corroborationLevel(best) === "strong" ? "VERIFICADO" : "PROBABLE",

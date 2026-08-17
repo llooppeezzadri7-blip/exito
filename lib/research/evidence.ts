@@ -12,7 +12,7 @@ export type VerificationStatus = "VERIFICADO" | "PROBABLE" | "NO_VERIFICADO";
 
 /** How a piece of data reached us. Narrower than "source" — the mechanism. */
 export type ObtentionMethod =
-  | "google_places_api"
+  | "open_data_api"
   | "http_fetch"
   | "headless_browser"
   | "html_parse"
@@ -23,7 +23,8 @@ export type ObtentionMethod =
 
 /** Where the data came from, as a citable origin. */
 export type DataSource =
-  | "google_places"
+  | "openstreetmap"
+  | "turisme_cat"
   | "official_website"
   | "robots_txt"
   | "sitemap_xml"

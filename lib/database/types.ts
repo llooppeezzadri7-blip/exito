@@ -178,7 +178,7 @@ export interface Settings {
 export interface ApiUsage {
   id: string;
   owner_id: string;
-  service: "anthropic" | "google_places" | "google_pagespeed" | "webflow";
+  service: "anthropic" | "openstreetmap" | "turisme_cat" | "google_pagespeed" | "webflow";
   operation: string;
   business_id: string | null;
   job_id: string | null;

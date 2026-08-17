@@ -70,7 +70,7 @@ function seoScore({ business, scan }: ScoringInput): SubScore {
 
 function localSeoScore({ business }: ScoringInput): SubScore {
   // Real local SEO analysis needs Google Business Profile data (Phase 4,
-  // blocked on GOOGLE_PLACES_API_KEY) — this is a rough proxy from what we
+  // blocked on a local-SEO data source) — this is a rough proxy from what we
   // already store on the business record.
   const { value, reasons } = scoreFromProblems([
     { triggered: !business.gbp_place_id, points: 40, reason: "Sin ficha de Google Business Profile detectada" },

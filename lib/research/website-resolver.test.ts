@@ -124,7 +124,7 @@ describe("resolveOfficialWebsite", () => {
   it("registra el fallo del candidato caído en vez de darlo por bueno", async () => {
     const result = await resolveOfficialWebsite(
       GAUCHO,
-      [{ url: server.url("/caida"), origin: "google_places" }],
+      [{ url: server.url("/caida"), origin: "open_data" }],
       opts
     );
 
@@ -132,19 +132,19 @@ describe("resolveOfficialWebsite", () => {
     expect(result.assessments[0].error).toContain("500");
   });
 
-  it("prioriza la URL que viene de Google Places cuando ambas corroboran", async () => {
+  it("prioriza la URL que viene de datos abiertos cuando ambas corroboran", async () => {
     const result = await resolveOfficialWebsite(
       GAUCHO,
       [
         { url: server.url("/otra-marca"), origin: "search_result" },
-        { url: server.url("/steakhouse"), origin: "google_places" },
+        { url: server.url("/steakhouse"), origin: "open_data" },
       ],
       opts
     );
 
     if (result.website.status !== "NO_VERIFICADO") {
       expect(result.website.value).toBe(server.url("/steakhouse"));
-      expect(result.website.source).toBe("google_places");
+      expect(result.website.source).toBe("openstreetmap");
     }
   });
 });
