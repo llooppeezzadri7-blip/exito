@@ -69,7 +69,7 @@ describe("runResearch de extremo a extremo", () => {
       discovery: discoveryReturning([
         {
           name: "Restaurant Can Prova",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "p1",
           phone: "+34 972 37 34 01",
           website_url: server.url("/bueno"),
@@ -81,7 +81,7 @@ describe("runResearch de extremo a extremo", () => {
         },
         {
           name: "Taller Sin Web",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "p2",
           phone: "+34 972 11 22 33",
           city: "Lloret de Mar",
@@ -91,7 +91,7 @@ describe("runResearch de extremo a extremo", () => {
         },
         {
           name: "Bar Deficiente",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "p3",
           phone: "+34 972 44 55 66",
           website_url: server.url("/malo"),
@@ -135,7 +135,7 @@ describe("runResearch de extremo a extremo", () => {
       discovery: discoveryReturning([
         {
           name: "Bar Deficiente",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "p3",
           phone: "+34 972 44 55 66",
           website_url: server.url("/malo"),
@@ -173,7 +173,7 @@ describe("runResearch de extremo a extremo", () => {
       discovery: discoveryReturning([
         {
           name: "Web Caída",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "p9",
           website_url: "https://dominio-inexistente-para-test-9999.test/",
           city: "Lloret de Mar",
@@ -181,7 +181,7 @@ describe("runResearch de extremo a extremo", () => {
         },
         {
           name: "Restaurant Can Prova",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "p1",
           phone: "+34 972 37 34 01",
           website_url: server.url("/bueno"),
@@ -210,7 +210,7 @@ describe("runResearch de extremo a extremo", () => {
     const repository = new MockAgencyRepository();
     const record = {
       name: "Restaurant Can Prova",
-      source: "google_places" as const,
+      source: "openstreetmap" as const,
       gbp_place_id: "p1",
       phone: "+34 972 37 34 01",
       website_url: server.url("/bueno"),
@@ -253,7 +253,7 @@ describe("runResearch de extremo a extremo", () => {
       discovery: discoveryReturning([
         {
           name: "Negocio Sin Datos",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "px",
           city: "Lloret de Mar",
         },
@@ -276,7 +276,7 @@ describe("runResearch de extremo a extremo", () => {
       discovery: discoveryReturning([
         {
           name: "Clínica Alta Puntuación",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "c1",
           phone: "+34 972 00 11 22",
           email: "info@clinica.test",
@@ -311,7 +311,7 @@ describe("runResearch de extremo a extremo", () => {
       discovery: discoveryReturning([
         {
           name: "Restaurant Can Prova",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "p1",
           phone: "+34 972 37 34 01",
           website_url: server.url("/bueno"),
@@ -365,7 +365,7 @@ describe("modo prueba controlada (§1, §6)", () => {
     // El descubrimiento devuelve 25 negocios distintos pese al tope de 10.
     const many = Array.from({ length: 25 }, (_, i) => ({
       name: `Restaurante ${i}`,
-      source: "google_places" as const,
+      source: "openstreetmap" as const,
       gbp_place_id: `place-${i}`,
       phone: `+34 972 00 00 ${String(i).padStart(2, "0")}`,
       city: "Blanes",
@@ -383,7 +383,7 @@ describe("modo prueba controlada (§1, §6)", () => {
     expect(run.issues.some((i) => i.code === "MAX_BUSINESSES_REACHED")).toBe(true);
   }, 60_000);
 
-  it("conserva el place_id de Google como identificador principal", async () => {
+  it("la identidad principal es el business_id propio, no un id externo", async () => {
     const repository = new MockAgencyRepository();
 
     await runResearch({
@@ -392,7 +392,7 @@ describe("modo prueba controlada (§1, §6)", () => {
       discovery: discoveryReturning([
         {
           name: "Restaurant Blanes",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "ChIJ_blanes_real",
           phone: "+34 972 33 44 55",
           city: "Blanes",
@@ -401,8 +401,13 @@ describe("modo prueba controlada (§1, §6)", () => {
       ]),
     });
 
-    expect(mockStore.businesses[0].gbp_place_id).toBe("ChIJ_blanes_real");
-    expect(mockStore.businesses[0].source).toBe("google_places");
+    const stored = mockStore.businesses[0];
+    // El id externo se conserva si la fuente lo trae, pero la identidad es
+    // nuestra y la confianza la fija la corroboración, no la fuente.
+    expect(stored.id).toBeTruthy();
+    expect(stored.source).toBe("openstreetmap");
+    expect(stored.corroborating_sources).toEqual(["openstreetmap"]);
+    expect(stored.verification_status).toBe("PROBABLE");
   }, 60_000);
 
   it("no mezcla dos negocios parecidos del mismo pueblo", async () => {
@@ -414,7 +419,7 @@ describe("modo prueba controlada (§1, §6)", () => {
       discovery: discoveryReturning([
         {
           name: "Restaurant Mar Blau",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "ChIJ_uno",
           phone: "+34 972 11 11 11",
           address: "Passeig de Dintre, 10",
@@ -423,7 +428,7 @@ describe("modo prueba controlada (§1, §6)", () => {
         },
         {
           name: "Restaurant Mar Blau II",
-          source: "google_places",
+          source: "openstreetmap",
           gbp_place_id: "ChIJ_dos",
           phone: "+34 972 22 22 22",
           address: "Avinguda Joan Carles I, 4",

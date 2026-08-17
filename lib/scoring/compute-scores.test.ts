@@ -40,6 +40,8 @@ function makeBusiness(overrides: Partial<Business> = {}): Business {
     latitude: null,
     longitude: null,
     source: "csv_import",
+  corroborating_sources: [],
+  verification_status: "PROBABLE",
     source_job_id: null,
     last_analyzed_at: null,
     created_at: "2026-08-01T00:00:00Z",

@@ -1,3 +1,4 @@
 export * from "./types";
 export { CsvBusinessSourceProvider } from "./csv-provider";
-export { GooglePlacesBusinessSourceProvider } from "./google-places-provider";
+export { OverpassBusinessSourceProvider } from "./overpass-provider";
+export { TurismeCatBusinessSourceProvider } from "./turisme-cat-provider";

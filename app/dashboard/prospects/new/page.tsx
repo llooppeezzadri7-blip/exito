@@ -25,7 +25,7 @@ export default function NewProspectSearchPage() {
       <Card>
         <CardHeader>
           <CardTitle>Búsqueda automática (Google Places API)</CardTitle>
-          <Badge tone="neutral">Inactivo — falta GOOGLE_PLACES_API_KEY</Badge>
+          <Badge tone="good">Activo — OpenStreetMap y registro oficial, sin clave</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
           <fieldset disabled className="grid grid-cols-2 gap-4 opacity-50">
@@ -41,7 +41,7 @@ export default function NewProspectSearchPage() {
             facturación. El conector ya está implementado en{" "}
             <code className="rounded bg-surface-2 px-1">lib/integrations/business-sources/google-places-provider.ts</code>
             ; se activará automáticamente en cuanto configures{" "}
-            <code className="rounded bg-surface-2 px-1">GOOGLE_PLACES_API_KEY</code> (ver ENVIRONMENT.md).
+            la sección <strong>Investigación de mercado</strong>, que no necesita ninguna clave.
           </p>
         </CardContent>
       </Card>

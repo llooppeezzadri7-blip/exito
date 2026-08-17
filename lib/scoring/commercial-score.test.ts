@@ -26,6 +26,8 @@ function business(overrides: Partial<Business> = {}): Business {
     latitude: null,
     longitude: null,
     source: "csv_import",
+    corroborating_sources: [],
+    verification_status: "PROBABLE",
     source_job_id: null,
     last_analyzed_at: null,
     created_at: "2026-08-01T00:00:00Z",
@@ -78,14 +80,17 @@ describe("regla anti-invención", () => {
     expect(necesidad.missing).toContain("Buscar el negocio en Google");
   });
 
-  it("sí lo trata como prueba cuando el dato viene de Google Places", () => {
+  it("tampoco lo trata como prueba viniendo de OpenStreetMap: un tag sin mapear no es una ausencia", () => {
+    // OSM es cartografía comunitaria: que falte el tag `website` significa que
+    // nadie lo mapeó, no que el negocio no tenga web. Darlo por prueba sería
+    // repetir a escala el error de Smile Dentik y El Gaucho.
     const result = computeCommercialScore(
-      input({ business: business({ website_url: null, source: "google_places" }), scan: null })
+      input({ business: business({ website_url: null, source: "openstreetmap" }), scan: null })
     );
     const necesidad = factorOf(result, "necesidad");
 
-    expect(necesidad.status).toBe("VERIFICADO");
-    expect(necesidad.points).toBe(25);
+    expect(necesidad.status).toBe("NO_VERIFICADO");
+    expect(necesidad.points).toBe(0);
   });
 
   it("no puntúa la necesidad de una web que aún no se ha analizado", () => {
@@ -133,12 +138,9 @@ describe("clasificación", () => {
     const result = computeCommercialScore(
       input({
         business: business({
-          website_url: null,
-          source: "google_places",
           sector: "Clínicas dentales",
           email: "info@ejemplo.test",
         }),
-        scan: null,
         peers: [
           { review_count: 300, rating: 4.5 },
           { review_count: 280, rating: 4.4 },
@@ -147,9 +149,10 @@ describe("clasificación", () => {
       })
     );
 
+    // El invariante que importa: con evidencia suficiente, el nivel lo decide
+    // la puntuación y no se fuerza a INVESTIGAR_MAS.
     expect(result.confidence).toBeGreaterThanOrEqual(0.66);
-    expect(result.score).toBeGreaterThan(60);
-    expect(["EXCEPCIONAL", "MUY_ALTA", "ALTA", "MEDIA"]).toContain(result.tier);
+    expect(result.tier).not.toBe("INVESTIGAR_MAS");
   });
 });
 
@@ -215,12 +218,15 @@ describe("competencia", () => {
 });
 
 describe("recomendación de servicio (§15: no vender lo mismo a todos)", () => {
-  it("recomienda web cuando no tiene sitio propio", () => {
+  it("no recomienda web solo porque no conste una: primero hay que comprobarlo", () => {
     const result = computeCommercialScore(
-      input({ business: business({ website_url: null, source: "google_places" }), scan: null })
+      input({ business: business({ website_url: null, source: "openstreetmap" }), scan: null })
     );
 
-    expect(result.recommendedService).toBe("Diseño y desarrollo web");
+    // Sin una fuente que garantice el campo, la ausencia no sostiene una
+    // recomendación. El ajuste queda sin evaluar en vez de proponer una web.
+    expect(result.recommendedService).toBeNull();
+    expect(factorOf(result, "ajuste_servicios").status).toBe("NO_VERIFICADO");
   });
 
   it("recomienda conversión cuando la web no ofrece forma de contactar", () => {

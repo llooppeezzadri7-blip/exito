@@ -111,12 +111,27 @@ function factor(
 
 /**
  * Whether a null `website_url` is evidence of "has no website" or merely
- * "we never collected it". Google Places returns the website field on every
- * place, so a null there is a real absence. A CSV column that was left blank
- * is not — the business may well have a site nobody typed in.
+ * "we never collected it".
+ *
+ * This used to be true for Google Places, which returns the website field on
+ * every place, so a null there was a real absence. With Places removed there
+ * is currently NO source that carries that guarantee:
+ *
+ *   - OpenStreetMap is community-mapped. A missing `website` tag means nobody
+ *     mapped it, not that the business has no site. Treating it as evidence
+ *     would reproduce, at scale, exactly the error made with Smile Dentik and
+ *     El Gaucho.
+ *   - The tourism register publishes the field, but only for accommodation.
+ *
+ * So this returns false for every source: absence is never evidence today.
+ * The effect is conservative — the Necesidad factor reports NO_VERIFICADO
+ * instead of awarding 25 points — which can only lower scores, never inflate
+ * them. The corroboration-based replacement is drafted in
+ * AUTONOMOUS-DISCOVERY.md §5 and is NOT applied pending explicit approval,
+ * because it moves scores.
  */
-function websiteAbsenceIsEvidence(business: Business): boolean {
-  return business.source === "google_places";
+function websiteAbsenceIsEvidence(_business: Business): boolean {
+  return false;
 }
 
 function scoreNecesidad(business: Business, scan: WebsiteScan | null): CommercialFactor {

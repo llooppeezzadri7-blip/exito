@@ -1,7 +1,7 @@
 import type { AgencyRepository } from "@/lib/database";
 import type { Business, Settings } from "@/lib/database/types";
 import type { RawBusinessRecord, DiscoveryResult } from "@/lib/integrations/business-sources/types";
-import { GooglePlacesBusinessSourceProvider } from "@/lib/integrations/business-sources/google-places-provider";
+import { discoverBusinesses, usesTourismRegister } from "./discovery";
 import { dedupeBatch, findDuplicate } from "@/lib/research/dedupe";
 import { resolveOfficialWebsite, type WebsiteCandidate } from "@/lib/research/website-resolver";
 import { needsSecondResearch } from "@/lib/research/pipeline";
@@ -125,7 +125,7 @@ function buildQuery(config: ResearchConfig): string {
 }
 
 function toCandidate(url: string | null | undefined): WebsiteCandidate[] {
-  return url ? [{ url, origin: "google_places" as const }] : [];
+  return url ? [{ url, origin: "search_result" as const }] : [];
 }
 
 export async function runResearch(options: RunResearchOptions): Promise<ResearchRunRecord> {
@@ -161,26 +161,64 @@ export async function runResearch(options: RunResearchOptions): Promise<Research
     error: null,
   };
 
-  const discovery: DiscoveryPort = options.discovery ?? new GooglePlacesBusinessSourceProvider();
-
   // ---- 1. Discovery -------------------------------------------------------
   progress.start("discovery", 1);
   let discovered: RawBusinessRecord[];
   try {
-    const result = await discovery.search({
-      query: buildQuery(config),
-      maxResults: config.maxBusinesses,
-      sector: config.sector,
-    });
-    discovered = result.records;
-    for (const error of result.errors) {
+    if (options.discovery) {
+      // Injected port (tests, or a future optional search module).
+      const result = await options.discovery.search({
+        query: buildQuery(config),
+        maxResults: config.maxBusinesses,
+        sector: config.sector,
+      });
+      discovered = result.records;
+      for (const error of result.errors) {
+        issues.push({
+          businessName: null,
+          phase: "discovery",
+          code: "DISCOVERY_ROW_SKIPPED",
+          message: error.message,
+        });
+      }
+    } else {
+      const result = await discoverBusinesses({
+        municipality: config.municipality,
+        category: config.subsector,
+        maxResults: config.maxBusinesses,
+        includeTourismRegister: usesTourismRegister(config.sector),
+      });
+
+      // Corroboration decides identity confidence; discovery only reports it.
+      discovered = result.businesses.map((entry) => entry.record);
+      for (const report of result.reports) {
+        if (!report.ok) {
+          issues.push({
+            businessName: null,
+            phase: "discovery",
+            code: "SOURCE_UNAVAILABLE",
+            message: `${report.source}: ${report.error}`,
+          });
+        }
+      }
+      for (const error of result.errors) {
+        issues.push({
+          businessName: null,
+          phase: "discovery",
+          code: "DISCOVERY_ROW_SKIPPED",
+          message: error.message,
+        });
+      }
       issues.push({
         businessName: null,
         phase: "discovery",
-        code: "DISCOVERY_ROW_SKIPPED",
-        message: error.message,
+        code: "CORROBORATION_SUMMARY",
+        message: `Verificados: ${result.summary.VERIFICADO} · Probables: ${result.summary.PROBABLE} · Contradictorios: ${result.summary.NO_VERIFICADO}`,
       });
     }
+
+    // Every source is free and keyless, so a run can no longer fail for lack
+    // of a paid credential — only for lack of data.
     progress.finish("discovery", `${discovered.length} encontrados`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Fallo en el descubrimiento";

@@ -7,7 +7,13 @@
  * because nothing sensitive is passed in.
  */
 
-export type ApiProvider = "google_places" | "google_pagespeed" | "anthropic" | "website" | "webflow";
+export type ApiProvider =
+  | "openstreetmap"
+  | "turisme_cat"
+  | "google_pagespeed"
+  | "anthropic"
+  | "website"
+  | "webflow";
 
 export interface ApiCallEntry {
   provider: ApiProvider;

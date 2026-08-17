@@ -6,7 +6,6 @@ import { runResearch } from "@/backend/research/run-research";
 import { createRunId, getRun, saveRun } from "@/backend/research/run-store";
 import { DEPTH_PRESETS, type ResearchConfig, type ResearchDepth } from "@/backend/research/types";
 import type { ProgressStep, ResearchRunRecord } from "@/backend/research/types";
-import { hasGooglePlaces } from "@/lib/config/env";
 import { checkRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { COSTA_BRAVA_MUNICIPALITIES } from "@/lib/research/costa-brava";
 import { DEFAULT_COST_LIMIT_USD, estimateResearchCost } from "@/lib/research/cost-estimate";
@@ -50,14 +49,6 @@ export async function startResearch(
   } catch (err) {
     if (err instanceof RateLimitError) return { error: err.message, runId: null };
     throw err;
-  }
-
-  if (!hasGooglePlaces) {
-    return {
-      error:
-        "Google Places API no configurada. Falta la variable GOOGLE_PLACES_API_KEY: sin ella no hay descubrimiento real y no se generan datos simulados. Ve a Configuración → APIs.",
-      runId: null,
-    };
   }
 
   const parsed = parseConfig(formData);

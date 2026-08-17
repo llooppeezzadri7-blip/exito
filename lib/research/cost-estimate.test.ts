@@ -11,21 +11,29 @@ const BLANES_TEST: ResearchConfig = {
 };
 
 describe("estimateResearchCost", () => {
-  it("la prueba controlada de Blanes cabe en una sola consulta a Google", () => {
+  it("la prueba controlada de Blanes no cuesta nada", () => {
     const estimate = estimateResearchCost(BLANES_TEST);
 
-    expect(estimate.placesRequests).toBe(1);
-    expect(estimate.estimatedCostUsd).toBeCloseTo(0.032, 4);
+    expect(estimate.discoveryRequests).toBe(1);
+    expect(estimate.estimatedCostUsd).toBe(0);
     expect(estimate.exceedsLimit).toBe(false);
     expect(estimate.maxBusinesses).toBe(10);
   });
 
-  it("solo Google factura; las webs de los negocios no", () => {
+  it("ninguna fuente factura: no queda ninguna llamada de pago", () => {
     const estimate = estimateResearchCost(BLANES_TEST);
-    const billable = estimate.calls.filter((c) => c.billable);
 
-    expect(billable).toHaveLength(1);
-    expect(billable[0].provider).toBe("Google Places");
+    expect(estimate.calls.filter((c) => c.billable)).toHaveLength(0);
+    expect(estimate.calls.some((c) => c.provider.includes("OpenStreetMap"))).toBe(true);
+  });
+
+  it("añade el registro oficial solo para el sector Turismo", () => {
+    const turismo = estimateResearchCost({ ...BLANES_TEST, sector: "Turismo" });
+    const hosteleria = estimateResearchCost(BLANES_TEST);
+
+    expect(turismo.discoveryRequests).toBe(2);
+    expect(turismo.calls.some((c) => c.provider.includes("Turisme"))).toBe(true);
+    expect(hosteleria.calls.some((c) => c.provider.includes("Turisme"))).toBe(false);
   });
 
   it("enumera las fases reales de la profundidad elegida", () => {
@@ -45,21 +53,21 @@ describe("estimateResearchCost", () => {
     expect(mobile.note).toContain("NO_VERIFICADO");
   });
 
-  it("marca el exceso cuando el coste supera el límite", () => {
+  it("con fuentes gratuitas nunca se supera el límite de gasto", () => {
     const estimate = estimateResearchCost(
       { ...BLANES_TEST, maxBusinesses: 60 },
-      { limitUsd: 0.05 }
+      { limitUsd: 0.01 }
     );
 
-    expect(estimate.placesRequests).toBe(3);
-    expect(estimate.exceedsLimit).toBe(true);
+    expect(estimate.estimatedCostUsd).toBe(0);
+    expect(estimate.exceedsLimit).toBe(false);
   });
 
-  it("nunca proyecta más páginas de las que el proveedor permite", () => {
-    // Aunque se pidieran 10.000 negocios, la paginación está topada.
-    const estimate = estimateResearchCost({ ...BLANES_TEST, maxBusinesses: 10_000 });
+  it("el número de consultas no crece con el número de negocios pedidos", () => {
+    const pocos = estimateResearchCost({ ...BLANES_TEST, maxBusinesses: 5 });
+    const muchos = estimateResearchCost({ ...BLANES_TEST, maxBusinesses: 10_000 });
 
-    expect(estimate.placesRequests).toBeLessThanOrEqual(5);
+    expect(pocos.discoveryRequests).toBe(muchos.discoveryRequests);
   });
 
   it("expone el límite por defecto de forma explícita", () => {

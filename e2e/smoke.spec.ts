@@ -117,21 +117,22 @@ test("subsector choices depend on the chosen sector", async ({ page }) => {
   await expect(subsector.locator("option", { hasText: "Restaurantes" })).toHaveCount(1);
 });
 
-test("without the Places key the run cannot start and the reason is explicit", async ({ page }) => {
-  // CI and this suite run with no secrets, which is exactly the no-API mode
-  // the brief requires to be honest rather than simulated (§15).
+test("discovery needs no credentials and the corroboration rule is stated", async ({ page }) => {
   await page.goto("/dashboard/research");
 
-  await expect(page.getByText("Google Places API no configurada")).toBeVisible();
-  await expect(page.getByText(/GOOGLE_PLACES_API_KEY/).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Iniciar investigación/ })).toBeDisabled();
+  await expect(page.getByText("Fuentes de descubrimiento")).toBeVisible();
+  await expect(page.getByText("OpenStreetMap").first()).toBeVisible();
+  await expect(page.getByText("Registre de Turisme de Catalunya").first()).toBeVisible();
+  await expect(page.getByText(/dos fuentes independientes/).first()).toBeVisible();
+  // No key gate any more: the run can be launched as-is.
+  await expect(page.getByRole("button", { name: /Iniciar investigación/ })).toBeEnabled();
 });
 
 test("settings shows API status without ever revealing a key", async ({ page }) => {
   await page.goto("/dashboard/settings");
 
   await expect(page.getByRole("heading", { name: "APIs e integraciones" })).toBeVisible();
-  await expect(page.getByText("GOOGLE_PLACES_API_KEY")).toBeVisible();
+  await expect(page.getByText("GOOGLE_PAGESPEED_API_KEY")).toBeVisible();
   await expect(page.getByText("No configurada").first()).toBeVisible();
   await expect(page.getByText("La clave nunca se envía al navegador")).toBeVisible();
 });

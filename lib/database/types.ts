@@ -29,7 +29,16 @@ export type LeadStage =
   | "WON"
   | "LOST";
 
-export type BusinessSource = "csv_import" | "google_places" | "manual";
+export type BusinessSource =
+  | "csv_import"
+  | "manual"
+  | "openstreetmap"
+  | "turisme_cat"
+  | "directory"
+  | "website";
+
+/** Identity confidence for a discovered business (corroboration rule). */
+export type BusinessVerificationStatus = "VERIFICADO" | "PROBABLE" | "NO_VERIFICADO";
 
 export interface Business {
   id: string;
@@ -53,6 +62,9 @@ export interface Business {
   latitude: number | null;
   longitude: number | null;
   source: BusinessSource;
+  /** Every source that independently reported this business. */
+  corroborating_sources: BusinessSource[];
+  verification_status: BusinessVerificationStatus;
   source_job_id: string | null;
   last_analyzed_at: string | null;
   created_at: string;

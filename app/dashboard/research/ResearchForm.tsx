@@ -17,7 +17,7 @@ const DEPTH_ORDER: ResearchDepth[] = ["rapida", "profunda", "completa"];
 const fieldClass =
   "h-10 w-full rounded-lg border border-border-hairline bg-surface-2 px-3 text-sm text-text-primary";
 
-export function ResearchForm({ placesConfigured }: { placesConfigured: boolean }) {
+export function ResearchForm() {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<StartResearchState, FormData>(
     startResearch,
@@ -162,16 +162,11 @@ export function ResearchForm({ placesConfigured }: { placesConfigured: boolean }
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={pending || !placesConfigured || blockedByCost}
+          disabled={pending || blockedByCost}
           className={buttonVariants({ size: "md" })}
         >
           {pending ? "Iniciando..." : "🚀 Iniciar investigación"}
         </button>
-        {!placesConfigured && (
-          <span className="text-xs text-status-warning">
-            Necesita GOOGLE_PLACES_API_KEY para descubrir negocios reales.
-          </span>
-        )}
         {blockedByCost && (
           <span className="text-xs text-status-critical">
             Confirma el exceso de coste para poder lanzarla.

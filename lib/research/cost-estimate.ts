@@ -1,4 +1,3 @@
-import { PLACES_COST_PER_REQUEST_USD } from "@/lib/integrations/business-sources/google-places-provider";
 import { DEPTH_PRESETS, type ResearchConfig } from "@/backend/research/types";
 
 /**
@@ -9,9 +8,11 @@ import { DEPTH_PRESETS, type ResearchConfig } from "@/backend/research/types";
  * Every figure is an upper bound. Under-estimating would defeat the purpose.
  */
 
-/** Requests the discovery step can issue for one query. */
-const PLACES_PAGE_SIZE = 20;
-const MAX_PLACES_PAGES = 5;
+/** Discovery is now free: one Overpass query plus, for tourism, one register
+ * query. Kept as constants so the estimate stays honest if that changes. */
+const OVERPASS_REQUESTS_PER_QUERY = 1;
+const TOURISM_REGISTER_REQUESTS = 1;
+const DISCOVERY_COST_PER_REQUEST_USD = 0;
 
 /** Default ceiling for one run, in USD. Configurable per call. */
 export const DEFAULT_COST_LIMIT_USD = 1;
@@ -29,7 +30,7 @@ export interface CostEstimate {
   /** Phases that will actually run at this depth. */
   phases: string[];
   calls: ExternalCallEstimate[];
-  placesRequests: number;
+  discoveryRequests: number;
   estimatedCostUsd: number;
   limitUsd: number;
   exceedsLimit: boolean;
@@ -46,20 +47,30 @@ export function estimateResearchCost(
   const limitUsd = options.limitUsd ?? DEFAULT_COST_LIMIT_USD;
   const businesses = config.maxBusinesses;
 
-  // Discovery: one page per 20 results requested, capped by the provider's
-  // own page ceiling. Retries can add up to 3 more per page on failure.
-  const pagesNeeded = Math.min(MAX_PLACES_PAGES, Math.ceil(businesses / PLACES_PAGE_SIZE));
-  const placesRequests = pagesNeeded;
+  // Discovery is one Overpass query, plus one register query for tourism.
+  const usesRegister = config.sector === "Turismo";
+  const discoveryRequests =
+    OVERPASS_REQUESTS_PER_QUERY + (usesRegister ? TOURISM_REGISTER_REQUESTS : 0);
 
   const calls: ExternalCallEstimate[] = [
     {
-      provider: "Google Places",
-      operation: "places:searchText",
-      maxCalls: pagesNeeded,
-      billable: true,
-      note: `Hasta ${MAX_PLACES_PAGES} páginas por consulta; ${pagesNeeded} para ${businesses} negocios. Los reintentos por error pueden añadir hasta 3 peticiones por página.`,
+      provider: "OpenStreetMap (Overpass)",
+      operation: "overpass:interpreter",
+      maxCalls: OVERPASS_REQUESTS_PER_QUERY,
+      billable: false,
+      note: "Datos abiertos, sin clave ni facturación. Hasta 2 reintentos si el servidor está saturado.",
     },
   ];
+
+  if (usesRegister) {
+    calls.push({
+      provider: "Registre de Turisme de Catalunya",
+      operation: "socrata:establiments",
+      maxCalls: TOURISM_REGISTER_REQUESTS,
+      billable: false,
+      note: "Registro oficial en datos abiertos, sin clave.",
+    });
+  }
 
   if (preset.resolveWebsite) {
     calls.push({
@@ -104,22 +115,21 @@ export function estimateResearchCost(
     });
   }
 
-  const estimatedCostUsd = Number((placesRequests * PLACES_COST_PER_REQUEST_USD).toFixed(4));
+  const estimatedCostUsd = Number(
+    (discoveryRequests * DISCOVERY_COST_PER_REQUEST_USD).toFixed(4)
+  );
 
   const notes = [
-    `ESTIMACIÓN: ${PLACES_COST_PER_REQUEST_USD} $ por petición a Places, tarifa de referencia sin descontar el tramo gratuito mensual.`,
-    "Solo Google Places factura. El resto de peticiones son a las webs de los negocios y no tienen coste.",
-    `El pipeline no puede procesar más de ${businesses} negocios únicos aunque la búsqueda devuelva más.`,
+    "Ninguna fuente de descubrimiento factura: OpenStreetMap y el registro de turismo son datos abiertos sin clave.",
+    "El resto de peticiones son a las webs de los propios negocios y tampoco tienen coste.",
+    `El pipeline no puede procesar más de ${businesses} negocios únicos aunque las fuentes devuelvan más.`,
+    "Un negocio hallado por una sola fuente queda PROBABLE; hacen falta dos fuentes independientes para VERIFICADO.",
   ];
-
-  if (preset.secondResearch) {
-    notes.push("La segunda investigación no vuelve a llamar a Google: solo revisa webs.");
-  }
 
   return {
     phases: preset.steps,
     calls,
-    placesRequests,
+    discoveryRequests,
     estimatedCostUsd,
     limitUsd,
     exceedsLimit: estimatedCostUsd > limitUsd,

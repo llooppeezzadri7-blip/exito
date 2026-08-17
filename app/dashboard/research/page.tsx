@@ -4,7 +4,7 @@ import { listRuns } from "@/backend/research/run-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { hasGooglePlaces, hasPageSpeed } from "@/lib/config/env";
+import { hasPageSpeed } from "@/lib/config/env";
 import { DEPTH_PRESETS } from "@/backend/research/types";
 
 export default async function ResearchPage() {
@@ -20,36 +20,32 @@ export default async function ResearchPage() {
         </p>
       </div>
 
-      {!hasGooglePlaces && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Google Places API no configurada</CardTitle>
-            <Badge tone="warning">Inactiva</Badge>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-text-secondary">
-            <p>
-              El descubrimiento de negocios necesita <code>GOOGLE_PLACES_API_KEY</code>. Sin ella no
-              se puede iniciar una investigación: este sistema no genera datos simulados.
+      <Card>
+        <CardHeader>
+          <CardTitle>Fuentes de descubrimiento</CardTitle>
+          <Badge tone="good">Sin claves ni coste</Badge>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-text-secondary">
+          <p>
+            Los negocios se descubren en <strong>OpenStreetMap</strong> (vía Overpass) y, para
+            alojamientos, en el <strong>Registre de Turisme de Catalunya</strong>. Ambas son fuentes
+            abiertas: no necesitan API key ni cuenta de facturación.
+          </p>
+          <p>
+            Un negocio hallado por una sola fuente queda como <strong>PROBABLE</strong>. Para pasar a{" "}
+            <strong>VERIFICADO</strong> hacen falta dos fuentes independientes que coincidan. Si se
+            contradicen, queda <strong>NO_VERIFICADO</strong> hasta resolverlo.
+          </p>
+          {!hasPageSpeed && (
+            <p className="text-xs text-text-muted">
+              Sin <code>GOOGLE_PAGESPEED_API_KEY</code>, las métricas de Lighthouse se marcan como no
+              disponibles en lugar de estimarse.
             </p>
-            <p>
-              Añádela a <code>.env.local</code> y reinicia el servidor. Los pasos completos están en{" "}
-              <Link href="/dashboard/settings" className="text-accent-450 hover:underline">
-                Configuración → APIs
-              </Link>
-              .
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
-      {hasGooglePlaces && !hasPageSpeed && (
-        <p className="text-xs text-text-muted">
-          Nota: sin <code>GOOGLE_PAGESPEED_API_KEY</code>, las métricas de Lighthouse se marcarán
-          como no disponibles en lugar de estimarse.
-        </p>
-      )}
-
-      <ResearchForm placesConfigured={hasGooglePlaces} />
+      <ResearchForm />
 
       <Card>
         <CardHeader>

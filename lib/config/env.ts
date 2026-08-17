@@ -13,7 +13,6 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 
-  GOOGLE_PLACES_API_KEY: z.string().optional(),
   GOOGLE_PAGESPEED_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   WEBFLOW_API_TOKEN: z.string().optional(),
@@ -51,7 +50,6 @@ export const env = {
 
 export const hasSupabase = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.supabasePublishableKey);
 export const hasSupabaseAdmin = Boolean(hasSupabase && env.SUPABASE_SERVICE_ROLE_KEY);
-export const hasGooglePlaces = Boolean(env.GOOGLE_PLACES_API_KEY);
 export const hasPageSpeed = Boolean(env.GOOGLE_PAGESPEED_API_KEY);
 export const hasAnthropic = Boolean(env.ANTHROPIC_API_KEY);
 export const hasWebflow = Boolean(env.WEBFLOW_API_TOKEN && env.WEBFLOW_SITE_ID);

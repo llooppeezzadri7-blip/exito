@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { dataProvider } from "@/lib/config/env";
 import { ScoringWeightsForm } from "./ScoringWeightsForm";
 import { RecalculateAllButton } from "./RecalculateAllButton";
-import { hasAnthropic, hasGooglePlaces, hasPageSpeed, hasWebflow } from "@/lib/config/env";
+import { hasAnthropic, hasPageSpeed, hasWebflow } from "@/lib/config/env";
 
 /**
  * Credential status (§14). Only booleans reach this component — the values
@@ -13,11 +13,18 @@ import { hasAnthropic, hasGooglePlaces, hasPageSpeed, hasWebflow } from "@/lib/c
  */
 const API_STATUS = [
   {
-    label: "Google Places",
-    envVar: "GOOGLE_PLACES_API_KEY",
-    configured: hasGooglePlaces,
-    enables: "Descubrimiento automático de negocios por municipio y sector.",
-    missingEffect: "Sin ella no se puede iniciar una investigación de mercado.",
+    label: "OpenStreetMap (Overpass)",
+    envVar: "— sin clave",
+    configured: true,
+    enables: "Descubrimiento de negocios por municipio y categoría. Datos abiertos, sin coste.",
+    missingEffect: "",
+  },
+  {
+    label: "Registre de Turisme de Catalunya",
+    envVar: "— sin clave",
+    configured: true,
+    enables: "Alojamientos oficialmente registrados. Datos abiertos, sin coste.",
+    missingEffect: "",
   },
   {
     label: "Google PageSpeed",

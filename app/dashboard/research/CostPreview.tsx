@@ -45,8 +45,8 @@ export function CostPreview({
       <CardContent className="space-y-4 text-sm">
         <div className="grid gap-3 sm:grid-cols-4">
           <div>
-            <p className="text-xs text-text-muted">Consultas a Google</p>
-            <p className="tabular-nums text-text-primary">{estimate.placesRequests}</p>
+            <p className="text-xs text-text-muted">Consultas de descubrimiento</p>
+            <p className="tabular-nums text-text-primary">{estimate.discoveryRequests}</p>
           </div>
           <div>
             <p className="text-xs text-text-muted">Coste estimado</p>

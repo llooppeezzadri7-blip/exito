@@ -159,6 +159,8 @@ export class MockAgencyRepository implements AgencyRepository {
         latitude: record.latitude ?? null,
         longitude: record.longitude ?? null,
         source: record.source,
+        corroborating_sources: [record.source],
+        verification_status: "PROBABLE" as const,
         source_job_id: jobId,
         last_analyzed_at: null,
         created_at: now,

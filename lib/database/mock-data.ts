@@ -79,6 +79,8 @@ function biz(partial: Partial<Business> & { id: string; name: string }): Busines
     opening_hours: null,
     latitude: null,
     longitude: null,
+    corroborating_sources: [],
+    verification_status: "PROBABLE",
     source: "csv_import",
     source_job_id: null,
     last_analyzed_at: null,
