@@ -27,7 +27,8 @@ export type LeadStage =
   | "PROPOSAL"
   | "NEGOTIATION"
   | "WON"
-  | "LOST";
+  | "LOST"
+  | "NOT_INTERESTED";
 
 export type BusinessSource =
   | "csv_import"

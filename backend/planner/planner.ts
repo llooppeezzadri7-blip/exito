@@ -1,6 +1,7 @@
 import { COSTA_BRAVA_MUNICIPALITIES, COSTA_BRAVA_SECTORS } from "@/lib/research/costa-brava";
 import { estimateResearchCost } from "@/lib/research/cost-estimate";
 import { sourcePerformance, strategyPerformance, MIN_SAMPLE_FOR_ACTION } from "@/lib/memory/learning";
+import { learnedMunicipalityOrder } from "@/lib/memory/predictive";
 import { errorPatterns } from "@/lib/memory/error-memory";
 import { recordEvent } from "@/lib/memory/research-memory";
 import { assessSeasonality } from "@/lib/research/seasonality";
@@ -57,12 +58,36 @@ function planMunicipalities(goal: ResearchGoal): { name: string; justification: 
     ? COSTA_BRAVA_MUNICIPALITIES.filter((m) => goal.municipalities!.includes(m.name))
     : COSTA_BRAVA_MUNICIPALITIES;
 
+  // FASE 5.4: real sales outrank discovery yield. A municipality that
+  // produces plenty of findable businesses which never buy is a worse target
+  // than one that produces fewer that do, and only the outcome log knows
+  // which is which.
+  const learned = learnedMunicipalityOrder();
+  const salesRank = new Map((learned?.order ?? []).map((name, index) => [name, index]));
+
   const history = strategyPerformance().filter((s) => s.sampleSufficient);
   const ranked = new Map(history.map((h) => [h.municipality, h]));
 
   return [...inScope]
-    .sort((a, b) => (ranked.get(b.name)?.yieldPerQuery ?? -1) - (ranked.get(a.name)?.yieldPerQuery ?? -1))
+    .sort((a, b) => {
+      const salesA = salesRank.get(a.name) ?? Number.POSITIVE_INFINITY;
+      const salesB = salesRank.get(b.name) ?? Number.POSITIVE_INFINITY;
+      if (salesA !== salesB) return salesA - salesB;
+      return (ranked.get(b.name)?.yieldPerQuery ?? -1) - (ranked.get(a.name)?.yieldPerQuery ?? -1);
+    })
     .map((municipality) => {
+      if (learned && salesRank.has(municipality.name)) {
+        return {
+          name: municipality.name,
+          justification: justify(
+            `Investigar ${municipality.name}`,
+            "historical_evidence",
+            `Es uno de los municipios donde más se ha cerrado, sobre ${learned.sampleSize} desenlaces reales registrados.`,
+            learned.sampleSize
+          ),
+        };
+      }
+
       const stats = ranked.get(municipality.name);
       if (stats) {
         return {

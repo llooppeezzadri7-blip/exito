@@ -14,6 +14,7 @@ const STAGE_LABELS: Record<LeadStage, string> = {
   NEGOTIATION: "Negociación",
   WON: "Ganado",
   LOST: "Perdido",
+  NOT_INTERESTED: "No interesado",
 };
 
 const STAGE_ORDER: LeadStage[] = [
@@ -29,6 +30,7 @@ const STAGE_ORDER: LeadStage[] = [
   "NEGOTIATION",
   "WON",
   "LOST",
+  "NOT_INTERESTED",
 ];
 
 export function PipelineChart({ leadsByStage }: { leadsByStage: Record<LeadStage, Lead[]> }) {

@@ -17,6 +17,7 @@ const LEAD_STAGES: LeadStage[] = [
   "NEGOTIATION",
   "WON",
   "LOST",
+  "NOT_INTERESTED",
 ];
 
 function withScore(businessId: string): BusinessWithScore {

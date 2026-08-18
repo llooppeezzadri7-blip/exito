@@ -176,6 +176,31 @@ export async function runResearch(options: RunResearchOptions): Promise<Research
         sector: config.sector,
       });
       discovered = result.records;
+
+      // Coverage is recorded here too, not only on the built-in path. It is
+      // what tells the autonomous cycle where it has already been, and a
+      // sweep that leaves no trace would be silently repeated forever.
+      const bySource = new Map<string, number>();
+      for (const record of result.records) {
+        bySource.set(record.source, (bySource.get(record.source) ?? 0) + 1);
+      }
+      for (const [source, count] of bySource) {
+        recordSourceQuery(
+          {
+            source: source as never,
+            municipality: config.municipality,
+            sector: config.sector ?? null,
+            category: config.subsector ?? null,
+            returned: count,
+            usable: count,
+            ok: true,
+            durationMs: 0,
+            error: null,
+          },
+          { runId: runId ?? null }
+        );
+      }
+
       for (const error of result.errors) {
         issues.push({
           businessName: null,

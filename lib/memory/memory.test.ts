@@ -60,6 +60,15 @@ function logQueries(source: "openstreetmap" | "turisme_cat", times: number, usab
   }
 }
 
+/** Campos de segmentación que la fase 5 añadió a OutcomeRecord. */
+const OUTCOME_CONTEXT = {
+  municipality: null,
+  sector: null,
+  businessSource: null,
+  factorsAtTime: null,
+  notes: null,
+} as const;
+
 describe("FASE 1 — memoria e historial", () => {
   it("registra lo que hizo cada fuente y lo puede consultar después", () => {
     logQueries("openstreetmap", 2, 8);
@@ -110,7 +119,7 @@ describe("FASE 1 — memoria e historial", () => {
     logQueries("openstreetmap", 3, 5);
     recordOutcome({
       businessId: "b1", outcome: "WON", scoreAtTime: 82, confidenceAtTime: 0.9,
-      recommendedService: "SEO local", soldService: "SEO local", notes: null,
+      recommendedService: "SEO local", soldService: "SEO local", ...OUTCOME_CONTEXT,
     });
 
     const stats = memoryStats();
@@ -159,9 +168,9 @@ describe("FASE 2 — aprendizaje", () => {
   });
 
   it("aprende qué señales preceden a una venta", () => {
-    recordOutcome({ businessId: "b1", outcome: "WON", scoreAtTime: 85, confidenceAtTime: 0.9, recommendedService: "SEO local", soldService: "SEO local", notes: null });
-    recordOutcome({ businessId: "b2", outcome: "WON", scoreAtTime: 82, confidenceAtTime: 0.85, recommendedService: "SEO local", soldService: "SEO local", notes: null });
-    recordOutcome({ businessId: "b3", outcome: "LOST", scoreAtTime: 45, confidenceAtTime: 0.7, recommendedService: "Web", soldService: null, notes: null });
+    recordOutcome({ businessId: "b1", outcome: "WON", scoreAtTime: 85, confidenceAtTime: 0.9, recommendedService: "SEO local", soldService: "SEO local", ...OUTCOME_CONTEXT });
+    recordOutcome({ businessId: "b2", outcome: "WON", scoreAtTime: 82, confidenceAtTime: 0.85, recommendedService: "SEO local", soldService: "SEO local", ...OUTCOME_CONTEXT });
+    recordOutcome({ businessId: "b3", outcome: "LOST", scoreAtTime: 45, confidenceAtTime: 0.7, recommendedService: "Web", soldService: null, ...OUTCOME_CONTEXT });
 
     const signals = signalPerformance();
     const alto = signals.find((s) => s.signal === "score>=80")!;
@@ -176,7 +185,7 @@ describe("FASE 2 — aprendizaje", () => {
     for (let i = 0; i < 20; i++) {
       recordOutcome({
         businessId: `b${i}`, outcome: "WON", scoreAtTime: 85, confidenceAtTime: 0.9,
-        recommendedService: "SEO local", soldService: "SEO local", notes: null,
+        recommendedService: "SEO local", soldService: "SEO local", ...OUTCOME_CONTEXT,
       });
     }
 

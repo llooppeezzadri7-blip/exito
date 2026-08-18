@@ -1,4 +1,5 @@
-import { recordEvent, queryEvents } from "./research-memory";
+import { randomUUID } from "node:crypto";
+import { enqueueMemoryWrite, memoryPersistence, recordEvent, queryEvents } from "./research-memory";
 
 /**
  * FASE 2 — Memoria de errores.
@@ -43,12 +44,35 @@ export interface ErrorRecord {
 
 class ErrorStore {
   errors: ErrorRecord[] = [];
-  counter = 0;
 }
 
 const globalForErrors = globalThis as unknown as { __errorMemory?: ErrorStore };
 const store = globalForErrors.__errorMemory ?? new ErrorStore();
 globalForErrors.__errorMemory = store;
+
+/** FASE 5.2 — write-through, so a lesson learned outlives the process. */
+function persist(error: ErrorRecord): void {
+  const persistence = memoryPersistence();
+  if (!persistence) return;
+  enqueueMemoryWrite(`saveError:${error.id}`, () => persistence.saveError({ ...error }));
+}
+
+/**
+ * Restores known errors from the durable backend. Merged by id and the
+ * in-process copy wins, so hydrating mid-session cannot revert a fix that was
+ * just applied.
+ */
+export async function hydrateErrors(): Promise<number> {
+  const persistence = memoryPersistence();
+  if (!persistence) return 0;
+
+  const loaded = await persistence.loadErrors();
+  const byId = new Map(loaded.map((error) => [error.id, error]));
+  for (const error of store.errors) byId.set(error.id, error);
+
+  store.errors = [...byId.values()];
+  return loaded.length;
+}
 
 export interface RecordErrorInput {
   category: ErrorCategory;
@@ -61,9 +85,8 @@ export interface RecordErrorInput {
 }
 
 export function recordError(input: RecordErrorInput): ErrorRecord {
-  store.counter += 1;
   const error: ErrorRecord = {
-    id: `err-${store.counter}`,
+    id: randomUUID(),
     category: input.category,
     claim: input.claim,
     reality: input.reality,
@@ -77,6 +100,7 @@ export function recordError(input: RecordErrorInput): ErrorRecord {
   };
 
   store.errors.push(error);
+  persist(error);
   recordEvent({
     type: "ERROR_DETECTED",
     runId: null,
@@ -99,6 +123,7 @@ export function attachRegressionTest(errorId: string, testName: string): ErrorRe
 
   error.regressionTest = testName;
   if (error.status === "OPEN") error.status = "TEST_WRITTEN";
+  persist(error);
   return error;
 }
 
@@ -118,6 +143,7 @@ export function markFixed(errorId: string, fix: string): ErrorRecord {
 
   error.status = "FIXED";
   error.fix = fix;
+  persist(error);
 
   recordEvent({
     type: "CORRECTION_APPLIED",
@@ -184,7 +210,6 @@ export function errorCount(): number {
 
 export function resetErrorMemory(): void {
   store.errors = [];
-  store.counter = 0;
 }
 
 /**

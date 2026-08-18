@@ -20,6 +20,11 @@ const envSchema = z.object({
   N8N_WEBHOOK_URL: z.string().url().optional(),
 
   DATA_PROVIDER: z.enum(["mock", "supabase"]).optional(),
+
+  // FASE 5 — autonomous execution. The owner every autonomous write is
+  // attributed to, and the secret the scheduled-cycle endpoint requires.
+  AUTONOMOUS_OWNER_ID: z.string().uuid().optional(),
+  AUTONOMOUS_CYCLE_SECRET: z.string().min(16).optional(),
 });
 
 // .env files (and .env.example, which people copy to .env.local) commonly
@@ -50,6 +55,10 @@ export const env = {
 
 export const hasSupabase = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.supabasePublishableKey);
 export const hasSupabaseAdmin = Boolean(hasSupabase && env.SUPABASE_SERVICE_ROLE_KEY);
+/** True when a scheduled cycle could actually persist what it learns. */
+export const hasAutonomousPersistence = Boolean(
+  hasSupabaseAdmin && env.AUTONOMOUS_OWNER_ID
+);
 export const hasPageSpeed = Boolean(env.GOOGLE_PAGESPEED_API_KEY);
 export const hasAnthropic = Boolean(env.ANTHROPIC_API_KEY);
 export const hasWebflow = Boolean(env.WEBFLOW_API_TOKEN && env.WEBFLOW_SITE_ID);

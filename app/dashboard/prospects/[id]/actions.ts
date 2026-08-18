@@ -10,6 +10,9 @@ import { ProviderNotConfiguredError } from "@/lib/integrations/business-sources/
 import { generateDemo as buildDemo } from "@/backend/demo-generator/generate-demo";
 import { estimateAnthropicCostUsd } from "@/lib/costs/pricing";
 import { checkRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { isTerminalStage, recordLeadOutcome } from "@/backend/leads/outcomes";
+import { ensureMemoryReady } from "@/lib/memory/bootstrap";
+import { flushMemory } from "@/lib/memory/research-memory";
 
 async function logAiUsage(
   repo: AgencyRepository,
@@ -120,9 +123,22 @@ export async function addToPipeline(businessId: string): Promise<void> {
 
 export async function changeLeadStage(leadId: string, stage: LeadStage, redirectPath: string): Promise<void> {
   const repo = await getRepository();
-  await repo.updateLead(leadId, { stage });
+  const updated = await repo.updateLead(leadId, { stage });
+
+  // FASE 5.3 — closing the loop. Reaching a terminal stage is the moment the
+  // system finds out whether it was right, and it is the only ground truth
+  // the learning engine is allowed to treat as truth. Recorded here rather
+  // than in a nightly job so the outcome is captured next to the decision
+  // that produced it.
+  if (isTerminalStage(stage)) {
+    await ensureMemoryReady();
+    await recordLeadOutcome({ businessId: updated.business_id, stage, repository: repo });
+    await flushMemory();
+  }
+
   revalidatePath(redirectPath);
   revalidatePath("/dashboard/pipeline");
+  revalidatePath("/dashboard/autonomy");
 }
 
 export async function updateLeadFollowUp(leadId: string, formData: FormData): Promise<void> {

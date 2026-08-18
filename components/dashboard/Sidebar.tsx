@@ -12,6 +12,7 @@ import {
   MonitorPlay,
   FileSignature,
   KanbanSquare,
+  Bot,
   Settings,
   Sparkles,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/demos", label: "Demos", icon: MonitorPlay },
   { href: "/dashboard/proposals", label: "Propuestas", icon: FileSignature },
   { href: "/dashboard/pipeline", label: "Pipeline", icon: KanbanSquare },
+  { href: "/dashboard/autonomy", label: "Autonomía", icon: Bot },
   { href: "/dashboard/memory", label: "Memoria", icon: Brain },
   { href: "/dashboard/settings", label: "Configuración", icon: Settings },
 ];

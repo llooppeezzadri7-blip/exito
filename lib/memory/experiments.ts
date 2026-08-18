@@ -1,5 +1,6 @@
 import { checkAutonomousChange, type ConstraintCheck } from "./hard-constraints";
-import { recordEvent } from "./research-memory";
+import { randomUUID } from "node:crypto";
+import { enqueueMemoryWrite, memoryPersistence, recordEvent } from "./research-memory";
 
 /**
  * FASE 3 — Experiment engine.
@@ -57,12 +58,33 @@ export interface ExperimentConclusion {
 
 class ExperimentStore {
   experiments: Experiment[] = [];
-  counter = 0;
 }
 
 const globalForExperiments = globalThis as unknown as { __experimentStore?: ExperimentStore };
 const store = globalForExperiments.__experimentStore ?? new ExperimentStore();
 globalForExperiments.__experimentStore = store;
+
+/** FASE 5.2 — write-through: an experiment spans many cycles, so it has to
+ * outlive the process that started it, observations included. */
+function persist(experiment: Experiment): void {
+  const persistence = memoryPersistence();
+  if (!persistence) return;
+  enqueueMemoryWrite(`saveExperiment:${experiment.id}`, () =>
+    persistence.saveExperiment(structuredClone(experiment))
+  );
+}
+
+export async function hydrateExperiments(): Promise<number> {
+  const persistence = memoryPersistence();
+  if (!persistence) return 0;
+
+  const loaded = await persistence.loadExperiments();
+  const byId = new Map(loaded.map((experiment) => [experiment.id, experiment]));
+  for (const experiment of store.experiments) byId.set(experiment.id, experiment);
+
+  store.experiments = [...byId.values()];
+  return loaded.length;
+}
 
 export interface CreateExperimentInput {
   hypothesis: string;
@@ -76,9 +98,8 @@ export function createExperiment(input: CreateExperimentInput): Experiment {
     throw new Error("Un experimento necesita al menos dos variantes para comparar.");
   }
 
-  store.counter += 1;
   const experiment: Experiment = {
-    id: `exp-${store.counter}`,
+    id: randomUUID(),
     hypothesis: input.hypothesis,
     targetArea: input.targetArea,
     status: "RUNNING",
@@ -90,6 +111,7 @@ export function createExperiment(input: CreateExperimentInput): Experiment {
   };
 
   store.experiments.push(experiment);
+  persist(experiment);
   recordEvent({
     type: "DECISION_MADE",
     runId: null,
@@ -117,6 +139,7 @@ export function recordObservation(experimentId: string, variantId: string, usabl
   if (!variant) throw new Error(`Variante desconocida: ${variantId}`);
 
   variant.observations.push(usableBusinesses);
+  persist(experiment);
   return experiment;
 }
 
@@ -177,6 +200,7 @@ export function concludeExperiment(experimentId: string, at?: string): Experimen
 
   experiment.status = "CONCLUDED";
   experiment.concludedAt = at ?? new Date().toISOString();
+  persist(experiment);
 
   recordEvent({
     type: "DECISION_MADE",
@@ -216,5 +240,4 @@ export function pendingApproval(): Experiment[] {
 
 export function resetExperiments(): void {
   store.experiments = [];
-  store.counter = 0;
 }

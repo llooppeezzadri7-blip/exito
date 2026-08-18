@@ -19,11 +19,26 @@ default) so the UI is still demonstrable, but nothing persists.
 
 | Variable | Enables | Cost model |
 |---|---|---|
-| `GOOGLE_PLACES_API_KEY` | Automated business discovery beyond CSV import (`places:searchText`, with pagination) | Pay-per-use (Places API New). The field mask requests `rating`/`userRatingCount`, which are Enterprise-tier SKU fields — 1,000 free calls/month, then billed. One call returns up to 20 businesses. Requires GCP billing. **Not enabled by default — explicit user decision.** |
 | `GOOGLE_PAGESPEED_API_KEY` | Real Core Web Vitals / Lighthouse-based performance scoring | Free tier (25,000 req/day), then quota-limited |
 | `ANTHROPIC_API_KEY` | AI Audit narratives, proposal copy, outreach messages | Pay-per-token, see Anthropic pricing |
 | `WEBFLOW_API_TOKEN` / `WEBFLOW_SITE_ID` | App-driven `WebflowService` (create/edit pages, CMS) outside of this MCP session | Webflow site plan + API access |
 | `N8N_WEBHOOK_URL` | Trigger external n8n automations | Depends on n8n hosting |
+
+> Business discovery uses **only free, keyless sources** (OpenStreetMap via Overpass and the
+> Catalan tourism registry). There is no paid discovery API and no key to configure for it.
+> If one source fails, the run records the failure and continues with the others.
+
+## Autonomy (FASE 5)
+
+| Variable | Purpose | Consequence when absent |
+|---|---|---|
+| `AUTONOMOUS_OWNER_ID` | The account autonomous work is attributed to (a `auth.users.id` UUID). | Memory, experiments and known errors stay **process-local** and are lost on restart. The autonomy dashboard says so explicitly. |
+| `AUTONOMOUS_CYCLE_SECRET` | Shared secret for `POST /api/autonomous/cycle`, at least 16 characters. | The endpoint refuses every request (503). It never defaults to open. |
+
+Both are needed for unattended cycles to accumulate learning. `SUPABASE_SERVICE_ROLE_KEY` is
+also required: a scheduled cycle has no user session, so it writes through the service-role
+client instead. Apply `supabase/migrations/0003_autonomy.sql` first — the dashboard reports
+which tables are missing if you don't.
 
 ### Capabilities that depend on the host, not on a key
 

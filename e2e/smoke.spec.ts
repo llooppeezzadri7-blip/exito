@@ -179,6 +179,40 @@ test("prospect detail shows the commercial score with evidence and competitors",
   await expect(page.getByText("Competencia", { exact: true }).first()).toBeVisible();
 });
 
+test("autonomy dashboard answers what it will do next and why", async ({ page }) => {
+  await page.goto("/dashboard/autonomy");
+
+  await expect(page.getByRole("heading", { name: "Autonomía" })).toBeVisible();
+
+  // Sin persistencia configurada, tiene que decirlo, no insinuar lo contrario.
+  await expect(page.getByText("Solo en memoria")).toBeVisible();
+  await expect(page.getByText(/se perderá al reiniciar/).first()).toBeVisible();
+
+  // Los diez puntos pedidos.
+  await expect(page.getByText("Qué está haciendo ahora")).toBeVisible();
+  await expect(page.getByText("Qué investigará después, y por qué")).toBeVisible();
+  await expect(page.getByText("Qué ha aprendido de las ventas reales")).toBeVisible();
+  await expect(page.getByText("Qué fuentes están funcionando mejor")).toBeVisible();
+  await expect(page.getByText("Qué municipios y sectores rinden mejor")).toBeVisible();
+  await expect(page.getByText("Qué errores ha detectado")).toBeVisible();
+  await expect(page.getByText("Qué experimentos están activos")).toBeVisible();
+  await expect(page.getByText("Qué ha decidido por su cuenta")).toBeVisible();
+
+  // Sin historial, el modo es exploración y la muestra se declara como cero.
+  await expect(page.getByText("Exploración")).toBeVisible();
+  await expect(page.getByText(/ninguna todavía/)).toBeVisible();
+
+  // Y los límites están a la vista, no enterrados en el código.
+  await expect(page.getByText("Lo que el sistema NO puede cambiar por su cuenta")).toBeVisible();
+});
+
+test("autonomy dashboard is reachable from the sidebar", async ({ page }) => {
+  await page.goto("/dashboard");
+  await page.getByRole("link", { name: "Autonomía" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/autonomy$/);
+  await expect(page.getByText("Application error")).toHaveCount(0);
+});
+
 test("memory page shows what the system learned and what it may not change", async ({ page }) => {
   await page.goto("/dashboard/memory");
 
