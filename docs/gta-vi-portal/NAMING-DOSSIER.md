@@ -122,3 +122,36 @@ Notas de la comparativa:
 ### 6.3 Veredicto
 
 **SixCodex es claramente el mejor candidato (8.6/10). Recomendación: proceder a la compra de sixcodex.com** (y opcionalmente reservar .io por ~30 €/año si se quiere blindar, no imprescindible). La compra la ejecuta el usuario; pasos previos de 15 min: confirmación en registrador, búsqueda USPTO (tmsearch.uspto.gov) y EUIPO (euipo.europa.eu) del término "sixcodex", y registro inmediato de handles (@sixcodex) en X, YouTube, Instagram, TikTok y Reddit aunque no se usen aún.
+
+## 7. Ronda 2 (2026-08-20): naming orientado a descubrimiento
+
+Replanteamiento a petición del usuario, con criterios reponderados: recuerdo y escritura fáciles, facilidad de búsqueda en Google, pronunciación internacional, relación clara con GTA VI sin uso problemático de marca, potencial de marca grande, SEO y `.com` razonable.
+
+**Nota honesta sobre findability:** los nombres más "encontrables" del mercado contienen "GTA6" — por eso los usan los competidores — pero ese es exactamente el riesgo de marca que excluimos por criterio. La señal de juego legalmente segura es "Six"; la claridad de función la aporta el sufijo ("-pedia", "wiki", "codex").
+
+### Comparativa /10 (criterios del usuario)
+
+| Criterio | **Sixpedia** | SixCodex | SixInsider | TheSixWiki | TheSixReport | SixDatabase |
+|---|---|---|---|---|---|---|
+| Memorabilidad y escritura | 9.5 | 8 | 8 | 8 | 7 | 6.5 |
+| Facilidad de búsqueda (SERP propia, unívoco) | 9 | 8.5 | 8 | 7.5 | 7 | 7 |
+| Relación con GTA VI (sin marca problemática) | 7.5 | 7 | 7 | 8 | 7 | 7.5 |
+| Potencial de marca grande | 9 | 9 | 7 | 6.5 | 6 | 5.5 |
+| SEO | 8.5 | 8.5 | 7.5 | 7.5 | 7 | 7 |
+| Dominio .com | 10 (libre*) | 10 (libre*) | 10 (libre*) | 8 (libre* pero sixwiki.com ocupado → confusión) | 8 (libre*, largo) | 10 (libre*) |
+| **TOTAL** | **8.9** | **8.5** | **7.9** | **7.6** | **7.0** | **7.2** |
+
+Razonamiento por candidato:
+
+- **Sixpedia (sixpedia.com)** — El sufijo "-pedia" se entiende en todos los idiomas (efecto Wikipedia) y comunica al instante "enciclopedia del Six". Trivial de recordar, deletrear y pronunciar internacionalmente; SERP limpia y ownable. Precedente de marca grande: Investopedia. Riesgos: sufijo "-pedia" muy usado (es también lo que lo hace familiar); 6pedia.com está registrado por un tercero (variante de typo, impacto menor); la marca de Wikimedia es "Wikipedia", no el sufijo — riesgo bajo.
+- **SixCodex** — gana en gravitas/autoridad y empata en potencial de marca, pero "codex" comunica menos instantáneamente que "-pedia" para público internacional masivo y se recuerda algo peor. Sigue siendo el #2 sólido.
+- **SixInsider** — fácil y disponible, pero "insider" connota filtraciones/rumores: tensión directa con el posicionamiento de verificación.
+- **TheSixWiki** — función explícita, pero el "The" ensucia la escritura, sixwiki.com (sin "the") pertenece a otro, y "wiki" encasilla (peor para noticias/herramientas) con poco recorrido premium.
+- **TheSixReport / SixDatabase** — descriptivos y disponibles, pero fríos, largos y con poco potencial de marca.
+- Comprobados y descartados por ocupados: sixwiki, sixhub, sixcity, sixhq, sixguide(s), sixcentral, sixsource, sixworld, playsix, sixspot, sixpress, sixzone, sixportal, sixtracker, sixdaily/dailysix, sixreport, sixintel, grandsix/sixgrand/grand6, 6wiki, 6pedia, 6hub.
+
+### Recomendación de la ronda 2
+
+**#1 Sixpedia (8.9/10)** para los criterios reponderados: máximo recuerdo + comprensión universal + descubrimiento. **#2 SixCodex (8.5/10)** si se prefiere autoridad/seriedad sobre familiaridad. La disyuntiva real es de tono de marca: *Sixpedia = cercano y masivo; SixCodex = premium y editorial.* Ambos con dominio y validación limpios. Decisión del usuario.
+
+\* Mismo método y misma reserva que en §4: disponibilidad por delegación DNS, confirmar en registrador antes de comprar.
