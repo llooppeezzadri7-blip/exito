@@ -39,7 +39,34 @@ Para obtener el tuyo: Supabase → Authentication → Users → copia el `UID`.
 
 Genera el secreto con `openssl rand -hex 32`.
 
-## 3. Programar los ciclos
+## 3. Ejecutar un ciclo desde la terminal
+
+La vía más rápida para lanzar la primera investigación real:
+
+```bash
+npm run cycle:check      # ¿responden las fuentes abiertas?
+npm run cycle            # un ciclo completo, el sistema elige el objetivo
+```
+
+Con objetivo impuesto o presupuesto distinto:
+
+```bash
+npm run cycle -- --municipio Blanes --sector Hostelería
+npm run cycle -- --municipios Blanes,Roses --leads 15 --objetivos 2 --minutos 20
+```
+
+Es el mismo código que ejecutan el botón del dashboard y el cron, no una
+versión más suave. Al terminar imprime el objetivo elegido con su porqué, el
+informe completo, y guarda `informes/informe-<fecha>.txt` y
+`informes/leads-<fecha>.csv`.
+
+`cycle:check` existe por un fallo real: detrás de un cortafuegos todas las
+peticiones fallan, el ciclo registra "fuente no disponible" en cada objetivo y
+termina con cero leads — indistinguible de "ahí no hay negocios". La
+comprobación previa separa las dos cosas, y el ciclo se cancela solo si
+ninguna fuente responde (`--force` lo fuerza igualmente).
+
+## 4. Programar los ciclos
 
 ```bash
 curl -X POST https://tu-dominio/api/autonomous/cycle \
@@ -74,7 +101,7 @@ No hay proceso residente haciendo de reloj: en un despliegue serverless un
 `setInterval` muere con la instancia y se duplica entre instancias. El reloj
 vive fuera y este endpoint es la puerta.
 
-## 4. Cerrar el bucle de aprendizaje
+## 5. Cerrar el bucle de aprendizaje
 
 Esto es lo que de verdad hace que el sistema mejore, y es lo único que
 requiere trabajo humano: **marca el desenlace real de cada lead**.

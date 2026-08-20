@@ -20,7 +20,7 @@ import type { DiscoveryResult, RawBusinessRecord } from "./types";
  * evidence that it does not exist.
  */
 
-const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
+export const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
 const DEFAULT_TIMEOUT_MS = 60_000;
 const OVERPASS_QUERY_TIMEOUT_S = 45;
 const MAX_RETRIES = 2;

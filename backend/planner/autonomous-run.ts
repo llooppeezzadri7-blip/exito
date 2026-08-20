@@ -34,6 +34,8 @@ export interface TargetOutcome {
   /** Null when the target was planned but never executed. */
   found: number;
   skipped: boolean;
+  /** True when the target was attempted and the research itself failed. */
+  failed: boolean;
   reason: string;
   issues: ResearchIssue[];
 }
@@ -137,12 +139,12 @@ export async function runAutonomousResearch(options: AutonomousRunOptions): Prom
     // Global ceilings, checked before spending anything on the next target.
     if (leads.length >= plan.stop.maxLeads) {
       stoppedBecause = `Se alcanzó el objetivo de ${plan.stop.maxLeads} leads.`;
-      outcomes.push({ target, found: 0, skipped: true, reason: stoppedBecause, issues: [] });
+      outcomes.push({ target, found: 0, skipped: true, failed: false, reason: stoppedBecause, issues: [] });
       continue;
     }
     if (elapsed >= plan.stop.maxDurationMs) {
       stoppedBecause = `Se agotó el presupuesto de tiempo (${Math.round(plan.stop.maxDurationMs / 60000)} min).`;
-      outcomes.push({ target, found: 0, skipped: true, reason: stoppedBecause, issues: [] });
+      outcomes.push({ target, found: 0, skipped: true, failed: false, reason: stoppedBecause, issues: [] });
       continue;
     }
 
@@ -191,6 +193,7 @@ export async function runAutonomousResearch(options: AutonomousRunOptions): Prom
         target,
         found: 0,
         skipped: false,
+        failed: true,
         reason: `El objetivo falló: ${run.error ?? "error desconocido"}.`,
         issues: run.issues,
       });
@@ -260,6 +263,7 @@ export async function runAutonomousResearch(options: AutonomousRunOptions): Prom
       target,
       found: kept,
       skipped: false,
+      failed: false,
       reason:
         kept > 0
           ? `${kept} de ${run.results.length} negocios pasaron el triaje.`

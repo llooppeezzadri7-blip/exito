@@ -148,10 +148,30 @@ export function buildFinalReport(input: BuildReportInput): FinalReport {
   const contradictory = leads.filter((l) => l.verificationStatus === "NO_VERIFICADO");
   const lowConfidence = leads.filter((l) => l.confidence < plan.stop.sufficientConfidence);
   const sourceFailures = issues.filter((i) => i.code === "SOURCE_UNAVAILABLE");
+  // A target can fail two ways: a source reported itself unavailable, or the
+  // whole attempt threw. Both mean "we could not look", and the report has to
+  // say so either way.
+  const failedTargets = targets.filter((target) => target.failed);
+  const couldNotLook = sourceFailures.length > 0 || failedTargets.length > 0;
 
-  const notVerified: ReportSection = {
-    title: "Lo que no se ha podido verificar",
-    lines: [
+  // With no leads there is nothing to make claims about. Saying "todos los
+  // leads retenidos tienen una web resuelta" when zero were retained is
+  // vacuously true and reads as reassurance — exactly the kind of sentence
+  // that looks like knowledge and isn't.
+  const notVerifiedLines = leads.length === 0
+    ? [
+        "No se retuvo ningún lead, así que no hay nada que verificar ni nada que afirmar sobre ellos.",
+        ...sourceFailures.map((issue) => `Fuente no disponible durante la ejecución: ${issue.message}`),
+        ...failedTargets.map(
+          (target) => `${target.target.subsector} en ${target.target.municipality}: ${target.reason}`
+        ),
+        ...(couldNotLook
+          ? [
+              "Con las fuentes caídas, cero leads significa que no se pudo mirar — no que no haya negocios.",
+            ]
+          : []),
+      ]
+    : [
       unresolvedWebsites.length
         ? `${unresolvedWebsites.length} negocio(s) sin web confirmada: no se afirma que no tengan web, solo que no se ha podido confirmar cuál es.`
         : "Todos los leads retenidos tienen una web resuelta o una ausencia corroborada.",
@@ -165,7 +185,11 @@ export function buildFinalReport(input: BuildReportInput): FinalReport {
         ? `${lowConfidence.length} negocio(s) por debajo del ${pct(plan.stop.sufficientConfidence)} de evidencia: su puntuación es provisional.`
         : `Todos los leads retenidos alcanzan el ${pct(plan.stop.sufficientConfidence)} de evidencia.`,
       ...sourceFailures.map((issue) => `Fuente no disponible durante la ejecución: ${issue.message}`),
-    ],
+    ];
+
+  const notVerified: ReportSection = {
+    title: "Lo que no se ha podido verificar",
+    lines: notVerifiedLines,
   };
 
   // Patterns are only reported when there are enough cases to be a pattern

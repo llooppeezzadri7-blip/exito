@@ -48,7 +48,10 @@ export interface CycleRecord {
   experimentsRunning: VariantAssignment[];
   /** Experiments that reached their observation threshold in this cycle. */
   experimentsConcluded: { hypothesis: string; verdict: string; autoApplicable: boolean }[];
+  /** Objetivos que este ciclo iba a intentar, ya recortados al presupuesto. */
   targetsPlanned: number;
+  /** Objetivos que el plan contenía antes de aplicar el techo del ciclo. */
+  targetsInPlan: number;
   targetsExecuted: number;
   businessesAnalyzed: number;
   leadsProduced: number;
@@ -171,7 +174,11 @@ export async function runAutonomousCycle(options: RunCycleOptions): Promise<Cycl
       ...base,
       status: "COMPLETED",
       experimentsConcluded: concluded,
-      targetsPlanned: plan.targets.length,
+      // What this cycle was actually going to attempt, not what the plan
+      // would have liked. Reporting "1 de 4" when the budget only ever
+      // allowed one reads as three failures instead of a respected ceiling.
+      targetsPlanned: Math.min(plan.targets.length, options.maxTargets ?? budget.municipalitiesPerCycle),
+      targetsInPlan: plan.targets.length,
       targetsExecuted: result.targets.filter((target) => !target.skipped).length,
       businessesAnalyzed: result.decisions.length,
       leadsProduced: result.leads.length,
@@ -205,6 +212,7 @@ export async function runAutonomousCycle(options: RunCycleOptions): Promise<Cycl
       status: "FAILED",
       experimentsConcluded: [],
       targetsPlanned: 0,
+      targetsInPlan: 0,
       targetsExecuted: 0,
       businessesAnalyzed: 0,
       leadsProduced: 0,

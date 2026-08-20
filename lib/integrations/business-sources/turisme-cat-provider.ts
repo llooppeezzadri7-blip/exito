@@ -18,7 +18,7 @@ import type { DiscoveryResult, RawBusinessRecord } from "./types";
  * discovery comes from OpenStreetMap and directories instead.
  */
 
-const DATASET_URL = "https://analisi.transparenciacatalunya.cat/resource/t2h3-cgys.json";
+export const DATASET_URL = "https://analisi.transparenciacatalunya.cat/resource/t2h3-cgys.json";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**

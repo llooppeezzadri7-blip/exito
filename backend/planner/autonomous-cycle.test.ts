@@ -280,6 +280,52 @@ describe("ciclo autónomo completo", () => {
     expect(second.goal.municipalities).not.toEqual(first.goal.municipalities);
   });
 
+  it("no presenta el techo del presupuesto como objetivos fallidos", async () => {
+    const record = await runAutonomousCycle({
+      repository: new MockAgencyRepository(),
+      trigger: "test",
+      discovery: discovery(),
+      disableMobile: true,
+      scanOptions: { allowLoopbackForTesting: true },
+      now: () => NOW,
+      budget: { municipalitiesPerCycle: 1, maxLeads: 5, maxDurationMs: 60_000 },
+    });
+
+    // El plan contiene más objetivos de los que el ciclo puede intentar...
+    expect(record.targetsInPlan).toBeGreaterThan(record.targetsPlanned);
+    // ...pero "planificados" es lo que de verdad iba a intentar, así que
+    // ejecutar todos los permitidos se ve como 1 de 1, no como 1 de 4.
+    expect(record.targetsPlanned).toBe(1);
+    expect(record.targetsExecuted).toBe(record.targetsPlanned);
+  });
+
+  it("con las fuentes caídas dice que no pudo mirar, no que no haya negocios", async () => {
+    const dead: DiscoveryPort = {
+      isActive: true,
+      async search() {
+        throw new Error("Overpass respondió 403");
+      },
+    };
+
+    const record = await runAutonomousCycle({
+      repository: new MockAgencyRepository(),
+      trigger: "test",
+      discovery: dead,
+      disableMobile: true,
+      now: () => NOW,
+      budget: { municipalitiesPerCycle: 1, maxLeads: 5, maxDurationMs: 60_000 },
+    });
+
+    expect(record.leadsProduced).toBe(0);
+
+    const text = record.report!.notVerified.lines.join(" ");
+    // Sin leads no puede afirmar nada sobre ellos...
+    expect(text).toContain("No se retuvo ningún lead");
+    expect(text).not.toContain("Todos los leads retenidos");
+    // ...y la ausencia de resultados se atribuye a la fuente, no al mercado.
+    expect(text).toContain("no se pudo mirar");
+  });
+
   it("guarda el ciclo con su coste, su duración y su resultado", async () => {
     const record = await runAutonomousCycle({
       repository: new MockAgencyRepository(),
