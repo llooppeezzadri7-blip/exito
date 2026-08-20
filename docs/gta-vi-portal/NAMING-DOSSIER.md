@@ -84,3 +84,41 @@ Antes de comprar (pasos del usuario, ~15 min, coste ~12 €/año el dominio):
 4. Comprar solo el `.com` (los demás TLD no hacen falta al arrancar).
 
 Tras la decisión: se crea el **repo dedicado** con el nombre de la marca y se renombra el sitio Webflow (cuando haya acceso).
+
+## 6. Addendum (2026-08-20): validación específica de SixCodex
+
+### 6.1 Conflictos de marca y uso existente
+
+| Comprobación | Resultado |
+|---|---|
+| Empresa/producto/proyecto llamado "SixCodex" | ✅ **Ninguno encontrado** — la búsqueda no devuelve ninguna marca, empresa ni proyecto con ese nombre exacto |
+| sixcodex.com | ✅ Sigue pareciendo registrable (sin delegación NS) — y **toda la familia libre**: .net, .org, .io y .gg también sin delegación |
+| Redes sociales (X, Instagram, YouTube, TikTok, Reddit) | ✅ Ningún perfil "sixcodex" indexado en ninguna plataforma (verificación vía buscador; el acceso directo a las plataformas está bloqueado por la red de esta sesión — confirmar en el momento de registrar) |
+| GitHub | ✅ No existe "sixcodex" (solo "sixcodes", usuario sin relación) |
+
+**Adyacencias detectadas (ninguna bloqueante, todas a monitorizar):**
+1. **OpenAI Codex** — producto de IA para programar, muy conocido. Categoría distinta (herramienta dev vs. web editorial de gaming); "Six" + contexto GTA VI separan. Riesgo de confusión bajo; incluso familiariza la palabra.
+2. **Games Workshop "Codex"** — marca registrada para sus publicaciones de wargames (libros de ejército de Warhammer). Es la adyacencia legal más real por estar en gaming, pero: compuesto distinto ("SixCodex"), producto distinto (web de información vs. libros de reglas de miniaturas), y "codex" es además palabra común latina de uso genérico extendido. Riesgo bajo-moderado → la búsqueda formal USPTO/EUIPO previa a la compra sigue siendo obligada.
+3. **CODEX (grupo warez)** — grupo de cracking de juegos de PC, retirado desde 2022. Sin dimensión de marca registrada; riesgo solo reputacional y menor. Mitigación: no usar jamás "CODEX" en mayúsculas aislado como logo.
+
+### 6.2 Comparativa final /10
+
+| Criterio | SixCodex | SixDispatch | PalmettoSix |
+|---|---|---|---|
+| Branding | 9 | 7.5 | 7.5 |
+| Memorabilidad | 8 | 7 | 6.5 |
+| SEO (marca ownable, SERP limpia) | 8.5 | 6.5 | 6.5 |
+| Potencial de marca grande | 9 | 7 | 7 |
+| Crecer más allá de noticias | 9 | 5 | 7 |
+| Asociación con base de conocimiento | 10 | 4 | 4 |
+| Riesgo de confusión (más alto = menos riesgo) | 7 | 6 | 7 |
+| **TOTAL** | **8.6** | **6.1** | **6.5** |
+
+Notas de la comparativa:
+- **SixDispatch** pierde por encasillar en noticias (el pilar estratégico es la base de datos) y por colisión mental con medios existentes llamados "Dispatch" (p. ej. The Dispatch).
+- **PalmettoSix** pierde por deletreo difícil fuera de EE. UU. y ambigüedad geográfica: "Palmetto State" es Carolina del Sur, no Florida (aunque el sabal palmetto sea también la palmera estatal de Florida); existe además ruido de marcas "Palmetto" (ciudad, Palmetto State Armory).
+- **SixCodex** es el único cuyo nombre *es* la estrategia: un codex = compendio de referencia verificado.
+
+### 6.3 Veredicto
+
+**SixCodex es claramente el mejor candidato (8.6/10). Recomendación: proceder a la compra de sixcodex.com** (y opcionalmente reservar .io por ~30 €/año si se quiere blindar, no imprescindible). La compra la ejecuta el usuario; pasos previos de 15 min: confirmación en registrador, búsqueda USPTO (tmsearch.uspto.gov) y EUIPO (euipo.europa.eu) del término "sixcodex", y registro inmediato de handles (@sixcodex) en X, YouTube, Instagram, TikTok y Reddit aunque no se usen aún.
