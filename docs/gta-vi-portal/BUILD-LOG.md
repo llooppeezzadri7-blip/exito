@@ -14,3 +14,15 @@
 
 **Pendiente usuario:** renombrar sitio a "Sixpedia" (Site Settings), comprar sixpedia.com + handles, plan CMS al ampliar.
 **Siguiente hito (con aprobación):** plantilla de artículo de News, listados con filtros, páginas de credibilidad, contenido semilla.
+
+## 2026-08-20 · PIVOT: SixCodex como aplicación Next.js propia (Webflow abandonado)
+
+Decisión del usuario (spec "SixCodex Master Build"): abandonar Webflow y construir producto propio. Marca cerrada: **SixCodex**.
+
+Fase 0–1 construida en `/home/user/sixcodex` (repo git local, pendiente de repo GitHub — la integración no puede crear repos, 403):
+- Next.js 16 + TS strict + Tailwind v4 · 31 páginas 100% estáticas · build y typecheck limpios · smoke test OK
+- Claim Tracker + Timeline + Database + News + Characters + pilar release-date + páginas de credibilidad y legales
+- SEO estructural completo (metadata, canonicals, sitemap, robots, JSON-LD, breadcrumbs)
+- Contenido semilla 100% verificado con fuentes; arquitectura database-ready para Supabase (Fase 2)
+
+Los documentos estratégicos de este directorio siguen vigentes (producto, SEO, ingresos); la capa "Webflow" queda obsoleta.
