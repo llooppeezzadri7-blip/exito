@@ -21,6 +21,15 @@ import type { DiscoveryResult, RawBusinessRecord } from "./types";
  */
 
 export const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
+
+/**
+ * Exported so the health check sends exactly what the real requests send.
+ * Overpass answers 406 to a request without it, which made the preflight
+ * report the source as down while the actual scraping worked fine — a health
+ * check stricter than the code it is checking is worse than none.
+ */
+export const DISCOVERY_USER_AGENT =
+  "AI-Digital-Agency-OS/1.0 (prospecting research; contact via repository)";
 const DEFAULT_TIMEOUT_MS = 60_000;
 const OVERPASS_QUERY_TIMEOUT_S = 45;
 const MAX_RETRIES = 2;
@@ -247,7 +256,7 @@ export class OverpassBusinessSourceProvider {
             "Content-Type": "application/x-www-form-urlencoded",
             // Overpass asks for an identifying agent so they can contact
             // heavy users instead of blocking them.
-            "User-Agent": "AI-Digital-Agency-OS/1.0 (prospecting research; contact via repository)",
+            "User-Agent": DISCOVERY_USER_AGENT,
           },
           body: new URLSearchParams({ data: query }).toString(),
           signal: controller.signal,

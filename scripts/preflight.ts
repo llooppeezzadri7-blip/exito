@@ -1,4 +1,7 @@
-import { OVERPASS_ENDPOINT } from "@/lib/integrations/business-sources/overpass-provider";
+import {
+  DISCOVERY_USER_AGENT,
+  OVERPASS_ENDPOINT,
+} from "@/lib/integrations/business-sources/overpass-provider";
 import { DATASET_URL as TURISME_ENDPOINT } from "@/lib/integrations/business-sources/turisme-cat-provider";
 
 /**
@@ -41,7 +44,13 @@ const PROBES: Probe[] = [
       const response = await timed((signal) =>
         fetch(OVERPASS_ENDPOINT, {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            // The same header the real provider sends. Overpass returns 406
+            // without it, and a probe that fails where production succeeds
+            // reports a healthy source as down.
+            "User-Agent": DISCOVERY_USER_AGENT,
+          },
           body: `data=${encodeURIComponent("[out:json][timeout:10];node(41.67,2.79,41.68,2.80);out 1;")}`,
           signal,
         })
@@ -57,7 +66,10 @@ const PROBES: Probe[] = [
     url: TURISME_ENDPOINT,
     async check() {
       const response = await timed((signal) =>
-        fetch(`${TURISME_ENDPOINT}?$limit=1`, { signal })
+        fetch(`${TURISME_ENDPOINT}?$limit=1`, {
+          headers: { Accept: "application/json", "User-Agent": DISCOVERY_USER_AGENT },
+          signal,
+        })
       );
 
       if (!response.ok) return { ok: false, detail: `HTTP ${response.status}` };
