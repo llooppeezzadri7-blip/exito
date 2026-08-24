@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "cycle": "tsx scripts/run-cycle.ts",
     "cycle:check": "tsx scripts/preflight.ts",
-    "audit": "tsx scripts/audit-site.ts"
+    "audit": "tsx scripts/audit-site.ts",
+    "crawl": "tsx scripts/crawl-site.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

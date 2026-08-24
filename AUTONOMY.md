@@ -168,3 +168,46 @@ comprobado y aceptable.
 `--local` permite auditar loopback. Está desactivado por defecto a propósito:
 sin ese freno, la herramienta apuntaría a cualquier cosa que escuche en
 localhost del servidor donde corra.
+
+---
+
+## Crawler y análisis de sitio (W2)
+
+Convierte la auditoría de una URL en el análisis de un sitio entero.
+
+```bash
+npm run crawl -- https://ejemplo.com
+npm run crawl -- https://ejemplo.com --paginas 100 --profundidad 4 --auditar 5
+npm run crawl -- http://localhost:3000 --local
+npm run crawl -- https://ejemplo.com --json sitio.json     # modelo completo
+```
+
+Descubre URLs por enlaces internos, sitemap (incluido sitemap index), robots.txt
+y destinos de redirección. Construye el grafo del sitio —profundidad, enlaces
+entrantes y salientes, huérfanas, hubs— y detecta 4xx, 5xx, enlaces rotos,
+cadenas y bucles de redirección, títulos/H1/meta descriptions duplicados, URLs
+duplicadas por barra final, contenido idéntico, canonicals cruzados o apuntando
+a páginas no indexables, páginas demasiado profundas, y las tres
+inconsistencias entre sitemap y crawl.
+
+**Tres decisiones que conviene conocer:**
+
+La normalización de URLs **solo** colapsa lo que es inequívocamente el mismo
+recurso: fragmento, puerto por defecto, mayúsculas de esquema y host, y
+parámetros de campaña. La barra final y los parámetros ordinarios se rastrean
+por separado a propósito: fusionarlos ocultaría justo el problema de contenido
+duplicado que el crawler existe para encontrar.
+
+Un crawl que topó con un límite **rebaja sus conclusiones a PROBABLE**. Decir
+"12 páginas huérfanas" tras parar en la página 20 sería una cifra inventada.
+
+El **quality gate de sitio** es más estricto que el de página: bloquea también
+si el crawl no llegó a cubrirlo todo. Dar por bueno un sitio del que solo se ha
+visto la mitad no es lo mismo que darlo por bueno.
+
+**Límites conocidos:** el contenido casi-duplicado solo se detecta cuando el
+texto es idéntico —la detección por similitud necesita shingling, y afirmarla
+desde un hash sería exagerar lo medido—. El crawl es de un solo hilo y con
+pausa entre peticiones por educación con el servidor. El JavaScript no se
+ejecuta durante el crawl: las páginas que solo renderizan en cliente se ven
+como las sirve el servidor.
