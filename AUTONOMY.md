@@ -245,3 +245,47 @@ se declara "a presupuestar" en lugar de inventarle una cifra.
 Veredictos posibles: `web_nueva`, `rediseno`, `mejoras_puntuales`, `solo_seo`,
 `sin_oportunidad_clara`, `evidencia_insuficiente`. Los dos últimos existen a
 propósito: no todo negocio es una venta, y decirlo vale más que forzarla.
+
+---
+
+## Prospección por lotes — el comando de la mañana
+
+Procesa una cartera de negocios y devuelve a quién llamar primero y qué decirle.
+
+```bash
+npm run prospectar -- negocios.csv --top 3 --briefs briefs/
+npm run prospectar -- negocios.csv --json cartera.json
+```
+
+Columnas del CSV: `nombre`, `web`, `ciudad`, `sector`, `telefono`, `rating`,
+`reseñas`. Acepta también los nombres en inglés y variantes sin tilde.
+
+Cadena por negocio: `crawl → audit → diagnóstico → recomendación → oportunidad`.
+Un negocio que falla no tumba el lote: se registra y se sigue.
+
+**Qué mide el Opportunity Score.** No es "cómo de fea es la web". Pesa la
+gravedad de los problemas (40), la calidad del negocio según señales públicas
+(30), el valor del trabajo recomendado (20) y la contactabilidad (10). Un buen
+negocio con web deficiente puntúa más que una web horrible de un negocio que no
+tiene clientes que perder — que es precisamente lo que se busca.
+
+**ALTA_OPORTUNIDAD es exigente a propósito:** hace falta puntuación ≥ 75 **y**
+al menos un problema crítico que esté perdiendo clientes hoy. Un certificado
+caducado no convierte a nadie en prioridad: se arregla en una tarde. Un ranking
+donde todos son prioritarios no dice nada.
+
+Estados que no venden nada y son resultados válidos: `SIN_OPORTUNIDAD_CLARA`,
+`EVIDENCIA_INSUFICIENTE`. Un negocio sin puntuar aparece aparte, nunca como un
+cero: no saber no es lo mismo que valer cero.
+
+### DEMO_BRIEF
+
+Con `--briefs` se escribe un brief por cada una de las mejores oportunidades:
+páginas necesarias con su razón de ser, qué mejora respecto a la web actual,
+patrón de titles, tipos de schema, dirección de diseño justificada por sector,
+y — lo que más importa — el registro explícito de qué es `VERIFIED` y qué es
+`PLACEHOLDER`, más lo que hay que pedirle al cliente. Un generador que no
+distingue ambas cosas acaba inventándose la dirección de un negocio.
+
+Nada del brief lo escribe un modelo de lenguaje: cada campo se copia de la
+entrada verificada, se deriva de una medición, o se marca como marcador.

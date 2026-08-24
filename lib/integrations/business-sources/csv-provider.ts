@@ -21,7 +21,14 @@ const HEADER_ALIASES: Record<keyof Omit<RawBusinessRecord, "source">, string[]> 
   email: ["email", "correo", "e-mail"],
   gbp_place_id: ["gbp_place_id", "place_id", "google_place_id"],
   rating: ["rating", "valoracion", "valoración"],
-  review_count: ["review_count", "reviews", "num_resenas", "numero_resenas", "número_reseñas"],
+  // "reseñas" / "resenas" are what a Spanish export actually calls this
+  // column. Missing them silently dropped a scoring input, which is worse
+  // than rejecting the row: the ranking came out wrong and said nothing.
+  review_count: [
+    "review_count", "reviews", "num_reviews",
+    "resenas", "reseñas", "resenyes", "ressenyes",
+    "num_resenas", "numero_resenas", "número_reseñas", "opiniones",
+  ],
   latitude: ["latitude", "lat", "latitud"],
   longitude: ["longitude", "lng", "lon", "longitud"],
 };

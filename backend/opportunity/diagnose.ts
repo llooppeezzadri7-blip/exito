@@ -75,8 +75,13 @@ export const SERVICE_TO_CATALOGUE: Record<ServiceKind, string[]> = {
   seo_local: ["SEO local", "Optimización Google Business Profile"],
   contenido: ["SEO", "Contenido"],
   conversion: ["Optimización de conversión"],
-  accesibilidad: ["Diseño y desarrollo web"],
-  rendimiento: ["Diseño y desarrollo web"],
+  // Deliberately unmapped: accessibility and performance work are
+  // optimisation, not a web build. Borrowing the web-development price would
+  // quote four figures for an afternoon's work — the over-sell this engine
+  // exists to avoid. With no catalogue line they come out "a presupuestar",
+  // which is the honest answer.
+  accesibilidad: [],
+  rendimiento: [],
 };
 
 interface DiagnosisInput {
