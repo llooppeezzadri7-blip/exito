@@ -139,3 +139,32 @@ señalar después no es un cambio en el que se pueda confiar.
 | Observaciones por variante de experimento | 5 | `MIN_OBSERVATIONS_PER_VARIANT` |
 | Días antes de reinvestigar | 30 | `REVISIT_AFTER_DAYS` |
 | Presupuesto por ciclo | 3 municipios, 40 leads, 45 min | `DEFAULT_CYCLE_BUDGET` |
+
+---
+
+## Auditoría de webs (W1)
+
+Independiente del ciclo de prospección: audita cualquier web y puntúa nueve
+dimensiones.
+
+```bash
+npm run audit -- https://ejemplo.com
+npm run audit -- http://localhost:3000 --local     # tu propio dev server
+npm run audit -- https://ejemplo.com --json auditoria.json
+```
+
+Sale con código 1 si el quality gate no pasa, así que puede encadenarse en CI.
+
+**La regla que gobierna el modelo:** una comprobación que no se pudo ejecutar
+vale `NO_EVALUABLE`, nunca cero. Un cero afirma "lo hacen mal"; no poder medir
+dice otra cosa. Por eso cada puntuación lleva su confianza —qué porcentaje del
+modelo se pudo medir de verdad— y una dimensión sin nada medible puntúa `null`
+en lugar de arrastrar la nota global hacia abajo con una afirmación falsa.
+
+El quality gate bloquea la entrega por dos motivos: un fallo crítico, o una
+dimensión entera sin medir. Entregar a ciegas no es lo mismo que entregar algo
+comprobado y aceptable.
+
+`--local` permite auditar loopback. Está desactivado por defecto a propósito:
+sin ese freno, la herramienta apuntaría a cualquier cosa que escuche en
+localhost del servidor donde corra.
