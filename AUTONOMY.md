@@ -211,3 +211,37 @@ desde un hash sería exagerar lo medido—. El crawl es de un solo hilo y con
 pausa entre peticiones por educación con el servidor. El JavaScript no se
 ejecuta durante el crawl: las páginas que solo renderizan en cliente se ven
 como las sirve el servidor.
+
+---
+
+## Motor de oportunidad — "analiza este negocio"
+
+La primera capacidad que va de una URL a algo vendible.
+
+```bash
+npm run analizar -- https://negocio.com --nombre "Talleres Munné"
+npm run analizar -- http://localhost:3000 --local --una-pagina
+npm run analizar -- https://negocio.com --json analisis.json
+```
+
+Encadena `crawl (W2) → audit (W1) → diagnóstico → recomendación`, reutilizando
+los módulos existentes sin reimplementar nada.
+
+**Qué añade sobre W1/W2:** ellos responden *"qué falla en esta web"*. Nadie
+compra esa respuesta. El diagnóstico traduce cada hallazgo técnico a un
+problema de negocio —"quien entra no tiene forma de contactar"— con su
+consecuencia comercial y la evidencia técnica debajo, para poder defenderlo.
+
+**La regla que gobierna la recomendación:** proponer la intervención más
+pequeña que resuelve lo encontrado. Un negocio cuyo único fallo real es que
+falta el enlace `tel:` no necesita una web nueva, y proponérsela es como se
+pierde una venta que ya estaba ganada. Un rediseño solo se justifica cuando la
+estructura falla —no funciona en móvil— o cuando la web está mal en varios
+frentes a la vez.
+
+Los precios salen del catálogo configurado en ajustes. Un servicio sin precio
+se declara "a presupuestar" en lugar de inventarle una cifra.
+
+Veredictos posibles: `web_nueva`, `rediseno`, `mejoras_puntuales`, `solo_seo`,
+`sin_oportunidad_clara`, `evidencia_insuficiente`. Los dos últimos existen a
+propósito: no todo negocio es una venta, y decirlo vale más que forzarla.

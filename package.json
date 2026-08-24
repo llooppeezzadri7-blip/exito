@@ -13,7 +13,8 @@
     "cycle": "tsx scripts/run-cycle.ts",
     "cycle:check": "tsx scripts/preflight.ts",
     "audit": "tsx scripts/audit-site.ts",
-    "crawl": "tsx scripts/crawl-site.ts"
+    "crawl": "tsx scripts/crawl-site.ts",
+    "analizar": "tsx scripts/analyze-business.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

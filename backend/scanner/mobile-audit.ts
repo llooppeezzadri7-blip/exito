@@ -121,22 +121,25 @@ export async function auditMobile(
           document.body?.scrollWidth ?? 0
         );
 
-        const describe = (el: Element) => {
-          const id = el.id ? `#${el.id}` : "";
-          const cls =
-            typeof el.className === "string" && el.className.trim()
-              ? `.${el.className.trim().split(/\s+/).slice(0, 2).join(".")}`
-              : "";
-          return `${el.tagName.toLowerCase()}${id}${cls}`;
-        };
-
+        // Everything below is written without named helper bindings on
+        // purpose. This function is serialised and evaluated inside the
+        // browser, where the transpiler's helpers do not exist: a bundler
+        // that wraps named functions (esbuild's keepNames injects `__name`)
+        // produces a callback that throws ReferenceError the moment it runs.
+        // Observed for real — the mobile dimension silently degraded to
+        // NO_EVALUABLE under the CLI while passing under the test runner.
         const overflowing: string[] = [];
         for (const el of Array.from(document.body?.querySelectorAll("*") ?? [])) {
           const rect = el.getBoundingClientRect();
           if (rect.width === 0 || rect.height === 0) continue;
           // 2px tolerance for sub-pixel rounding and decorative borders.
           if (rect.right > viewportWidth + 2) {
-            const label = describe(el);
+            const id = el.id ? `#${el.id}` : "";
+            const cls =
+              typeof el.className === "string" && el.className.trim()
+                ? `.${el.className.trim().split(/\s+/).slice(0, 2).join(".")}`
+                : "";
+            const label = `${el.tagName.toLowerCase()}${id}${cls}`;
             if (!overflowing.includes(label)) overflowing.push(label);
           }
           if (overflowing.length >= 10) break;
