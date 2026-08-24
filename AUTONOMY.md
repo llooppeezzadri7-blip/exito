@@ -289,3 +289,34 @@ distingue ambas cosas acaba inventándose la dirección de un negocio.
 
 Nada del brief lo escribe un modelo de lenguaje: cada campo se copia de la
 entrada verificada, se deriva de una medición, o se marca como marcador.
+
+---
+
+## Barrido de toda la Costa Brava
+
+El comando para llenar el pipeline de una vez.
+
+```bash
+npm run barrido
+npm run barrido -- --analizar 100 --top 15 --briefs briefs/
+npm run barrido -- --municipios Blanes,Roses,Lloret\ de\ Mar --sectores Restaurantes,Hoteles
+```
+
+Descubre en los 72 municipios configurados × los sectores prioritarios,
+deduplica en toda la región, analiza cada web a fondo y devuelve **un solo
+ranking** de los más necesitados, con su teléfono, su problema principal y el
+valor del trabajo recomendado.
+
+Antes de gastar nada dice lo que va a costar (consultas, duración) y comprueba
+que las fuentes responden. Si no responden, se cancela: cero negocios por falta
+de red es indistinguible de cero negocios por falta de negocios, y prefiero
+cancelar a darte un informe vacío que parece un resultado.
+
+**Techos por defecto:** 20 negocios por consulta, 60 analizados a fondo, pausa
+de 1,2 s entre consultas. Overpass es una API pública y gratuita; martillearla
+es como se acaba con la IP bloqueada. Lo que queda fuera del techo se declara
+como "descubierto pero sin analizar", nunca como descartado.
+
+Diferencia con `npm run cycle`: el ciclo es el bucle desatendido con
+presupuesto pequeño, pensado para correr solo cada día. El barrido es la
+operación deliberada que lanzas tú una vez para llenar la cartera.

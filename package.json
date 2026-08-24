@@ -15,7 +15,8 @@
     "audit": "tsx scripts/audit-site.ts",
     "crawl": "tsx scripts/crawl-site.ts",
     "analizar": "tsx scripts/analyze-business.ts",
-    "prospectar": "tsx scripts/prospect.ts"
+    "prospectar": "tsx scripts/prospect.ts",
+    "barrido": "tsx scripts/sweep.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
