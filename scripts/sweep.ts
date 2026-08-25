@@ -6,6 +6,12 @@ import { flushMemory } from "@/lib/memory/research-memory";
 import { COSTA_BRAVA_MUNICIPALITIES } from "@/lib/research/costa-brava";
 import { estimateSweep, sweepRegion, PRIORITY_CATEGORIES, SWEEP_DEFAULTS } from "@/backend/opportunity/sweep";
 import { buildDemoBrief } from "@/backend/opportunity/demo-brief";
+import {
+  DEFAULT_CHECKPOINT_DIR,
+  FileCheckpoint,
+  MemoryCheckpoint,
+  type SweepCheckpoint,
+} from "@/backend/opportunity/checkpoint";
 import type { OpportunityRecord } from "@/backend/opportunity/batch";
 import { preflight, printPreflight } from "./preflight";
 
@@ -69,8 +75,30 @@ async function main() {
   console.log(`  Sectores:    ${categories.length} (${categories.join(", ")})`);
   console.log(`  Consultas de descubrimiento: ~${estimate.discoveryQueries}`);
   console.log(`  Negocios a analizar a fondo: hasta ${maxAnalyzed}`);
-  console.log(`  Duración estimada: ~${estimate.estimatedMinutes} min`);
+  console.log(
+    `  Duración estimada: entre ${estimate.estimatedMinutes} y ${estimate.estimatedMinutesMax} min` +
+      (estimate.estimatedMinutesMax >= 60
+        ? ` (hasta ${(estimate.estimatedMinutesMax / 60).toFixed(1)} h)`
+        : "")
+  );
   console.log(`  Coste: 0 € — las fuentes son abiertas y sin clave.\n`);
+
+  const checkpoint: SweepCheckpoint = argv.includes("--sin-checkpoint")
+    ? new MemoryCheckpoint()
+    : new FileCheckpoint(stringArg("--checkpoint") ?? DEFAULT_CHECKPOINT_DIR);
+
+  const alreadyDone = checkpoint.loadRecords().length;
+  if (alreadyDone > 0) {
+    console.log(
+      `  Reanudando: ${alreadyDone} negocio(s) ya analizados en ${checkpoint.describe()}.\n` +
+        `  Para empezar de cero, borra esa carpeta.\n`
+    );
+  } else {
+    console.log(
+      `  Progreso guardado en ${checkpoint.describe()} — si esto se interrumpe,\n` +
+        `  vuelve a lanzar el mismo comando y continúa donde lo dejó.\n`
+    );
+  }
 
   // A sweep that runs against dead sources produces zero opportunities and
   // looks identical to a region with none. Check first.
@@ -91,6 +119,7 @@ async function main() {
 
   const result = await sweepRegion({
     settings,
+    checkpoint,
     municipalities,
     categories,
     maxPerQuery,
@@ -122,7 +151,14 @@ async function main() {
       `${batch.stats.noOpportunity} sin oportunidad clara · ${batch.stats.failed} fallidos`
   );
   console.log(`Valor total del pipeline: ${batch.stats.totalPipelineValueEur} €`);
-  console.log(`Duración: ${Math.round(result.durationMs / 60000)} min\n`);
+  console.log(`Duración: ${Math.round(result.durationMs / 60000)} min`);
+  if (result.discoveryResumed || result.resumedAnalyses > 0) {
+    console.log(
+      `Reanudado: ${result.discoveryResumed ? "descubrimiento reutilizado" : "descubrimiento nuevo"}` +
+        `, ${result.resumedAnalyses} negocio(s) traídos de la ejecución anterior.`
+    );
+  }
+  console.log("");
 
   console.log("FUENTES");
   console.log("─".repeat(78));

@@ -1,6 +1,7 @@
 import type { Settings } from "@/lib/database/types";
 import type { RawBusinessRecord } from "@/lib/integrations/business-sources/types";
 import { analyzeBusiness, type BusinessAnalysis } from "./analyze-business";
+import { businessKey } from "./checkpoint";
 import type { Recommendation } from "./recommend";
 import type { BusinessProblem } from "./diagnose";
 
@@ -256,6 +257,17 @@ export interface BatchOptions {
   singlePage?: boolean;
   weights?: OpportunityWeights;
   onProgress?: (index: number, total: number, name: string, status: string) => void;
+  /**
+   * Called the moment a business is finished, before the next one starts.
+   * A run that is killed halfway keeps everything it had already produced.
+   */
+  onRecord?: (record: OpportunityRecord) => void;
+  /**
+   * Records from an earlier, interrupted run. Businesses already present are
+   * not re-analysed — their previous result is carried into this batch — so a
+   * relaunch continues rather than starting over.
+   */
+  previous?: OpportunityRecord[];
 }
 
 export interface BatchResult {
@@ -288,6 +300,18 @@ export async function analyzePortfolio(
   const startedAt = Date.now();
   const records: OpportunityRecord[] = [];
 
+  // Anything a previous run already finished. Carried into this batch as-is:
+  // re-crawling a site to get the answer we already have wastes the time the
+  // resume was meant to save, and hits the prospect's server for nothing.
+  const alreadyDone = new Map(
+    (options.previous ?? []).map((record) => [businessKey(record.business), record])
+  );
+
+  const commit = (record: OpportunityRecord) => {
+    records.push(record);
+    options.onRecord?.(record);
+  };
+
   for (const [index, business] of businesses.entries()) {
     const identity: OpportunityRecord["business"] = {
       name: business.name,
@@ -299,13 +323,21 @@ export async function analyzePortfolio(
       reviewCount: business.review_count ?? null,
     };
 
+    const resumed = alreadyDone.get(businessKey(identity));
+    if (resumed) {
+      options.onProgress?.(index, businesses.length, business.name, "ya analizado");
+      // Not re-committed: it is already on disk from the run that produced it.
+      records.push(resumed);
+      continue;
+    }
+
     // No website is not a failure: it is the clearest opportunity there is,
     // and the recommendation engine already knows what to do with it.
     if (!identity.website) {
       const quality = businessQualityScore(identity.rating, identity.reviewCount);
       options.onProgress?.(index, businesses.length, business.name, "sin web");
 
-      records.push({
+      commit({
         business: identity,
         opportunityScore: quality.score,
         confidence: quality.score === null ? "LOW" : "MEDIUM",
@@ -362,10 +394,10 @@ export async function analyzePortfolio(
         error: null,
       };
       record.status = opportunityStatus(record);
-      records.push(record);
+      commit(record);
     } catch (err) {
       // One unreachable site must not end the batch.
-      records.push({
+      commit({
         business: identity,
         opportunityScore: null,
         confidence: "LOW",

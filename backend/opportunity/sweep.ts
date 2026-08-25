@@ -2,8 +2,14 @@ import type { RawBusinessRecord } from "@/lib/integrations/business-sources/type
 import { COSTA_BRAVA_MUNICIPALITIES } from "@/lib/research/costa-brava";
 import { discoverBusinesses, usesTourismRegister } from "@/backend/research/discovery";
 import { dedupeBatch } from "@/lib/research/dedupe";
-import { recordSourceQuery } from "@/lib/memory/research-memory";
+import { recordSourceQuery, flushMemory } from "@/lib/memory/research-memory";
 import { analyzePortfolio, type BatchOptions, type BatchResult } from "./batch";
+import {
+  businessKey,
+  discoveryScope,
+  type DiscoverySnapshot,
+  type SweepCheckpoint,
+} from "./checkpoint";
 
 /**
  * "Busca oportunidades en toda la Costa Brava" — discovery across the whole
@@ -31,6 +37,12 @@ export interface SweepOptions extends Omit<BatchOptions, "onProgress"> {
   maxAnalyzed?: number;
   /** Pause between discovery queries, to stay welcome on a free API. */
   delayMs?: number;
+  /**
+   * Where partial progress is written. With one attached, a sweep killed
+   * halfway keeps its discovery and every business it had already analysed,
+   * and a relaunch continues from there instead of starting over.
+   */
+  checkpoint?: SweepCheckpoint;
   onProgress?: (stage: "DISCOVER" | "ANALYZE", detail: string) => void;
 }
 
@@ -44,6 +56,10 @@ export interface SweepResult {
   sources: { source: string; queries: number; failures: number; records: number }[];
   /** Municipality + category pairs that returned nothing at all. */
   emptyQueries: string[];
+  /** True when discovery came from a checkpoint rather than the live sources. */
+  discoveryResumed: boolean;
+  /** Businesses carried over from an interrupted run rather than re-analysed. */
+  resumedAnalyses: number;
   batch: BatchResult;
   durationMs: number;
   limitations: string[];
@@ -82,12 +98,16 @@ export async function sweepRegion(options: SweepOptions): Promise<SweepResult> {
     ? COSTA_BRAVA_MUNICIPALITIES.filter((m) => options.municipalities!.includes(m.name)).map((m) => m.name)
     : COSTA_BRAVA_MUNICIPALITIES.map((m) => m.name);
 
+  const scope = discoveryScope({ municipalities, categories: options.categories, maxPerQuery });
+  const cached = options.checkpoint?.loadDiscovery(scope) ?? null;
+
   const discovered: RawBusinessRecord[] = [];
   const sourceStats = new Map<string, { queries: number; failures: number; records: number }>();
   const emptyQueries: string[] = [];
   let first = true;
+  let queriesRun = 0;
 
-  for (const municipality of municipalities) {
+  for (const municipality of cached ? [] : municipalities) {
     for (const category of options.categories) {
       if (!first && delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -137,6 +157,13 @@ export async function sweepRegion(options: SweepOptions): Promise<SweepResult> {
 
         if (records.length === 0) emptyQueries.push(`${category} en ${municipality}`);
         discovered.push(...records);
+
+        // What the sources produced is written down every so often rather
+        // than only at the end: a sweep that dies at query four hundred
+        // should still have taught the planner what the first four hundred
+        // found.
+        queriesRun += 1;
+        if (queriesRun % 25 === 0) await flushMemory();
       } catch (err) {
         // One failed query must not end a sweep of seventy municipalities.
         emptyQueries.push(
@@ -148,18 +175,36 @@ export async function sweepRegion(options: SweepOptions): Promise<SweepResult> {
 
   // Deduplicate across the whole region: the same business found under two
   // categories, or straddling a municipal boundary, is still one business.
-  const { unique } = dedupeBatch(
-    discovered.map((record) => ({
-      ...record,
-      phone: record.phone ?? null,
-      website_url: record.website_url ?? null,
-      address: record.address ?? null,
-      city: record.city ?? null,
-      gbp_place_id: record.gbp_place_id ?? null,
-    }))
-  );
+  const snapshot: DiscoverySnapshot = cached ?? {
+    discovered: discovered.length,
+    unique: dedupeBatch(
+      discovered.map((record) => ({
+        ...record,
+        phone: record.phone ?? null,
+        website_url: record.website_url ?? null,
+        address: record.address ?? null,
+        city: record.city ?? null,
+        gbp_place_id: record.gbp_place_id ?? null,
+      }))
+    ).unique as RawBusinessRecord[],
+    sources: [...sourceStats.entries()].map(([source, stats]) => ({ source, ...stats })),
+    emptyQueries,
+  };
 
-  const toAnalyze = unique.slice(0, maxAnalyzed) as RawBusinessRecord[];
+  if (!cached) {
+    // Saved before a single site is crawled: discovery is the rate-limited
+    // half, and losing it means five hundred more requests to a free API.
+    options.checkpoint?.saveDiscovery(scope, snapshot);
+    await flushMemory();
+  } else {
+    limitations.push(
+      `El descubrimiento se reutilizó de una ejecución anterior (${snapshot.unique.length} negocios únicos). ` +
+        "Las cifras de fuentes son las de aquella ejecución, no se volvieron a consultar."
+    );
+  }
+
+  const unique = snapshot.unique;
+  const toAnalyze = unique.slice(0, maxAnalyzed);
   const skipped = unique.length - toAnalyze.length;
 
   if (skipped > 0) {
@@ -168,9 +213,29 @@ export async function sweepRegion(options: SweepOptions): Promise<SweepResult> {
     );
   }
 
-  if (emptyQueries.length > 0) {
+  if (snapshot.emptyQueries.length > 0) {
     limitations.push(
-      `${emptyQueries.length} combinación(es) de municipio y sector no devolvieron nada. Puede ser que no haya ese tipo de negocio mapeado ahí, no que no exista.`
+      `${snapshot.emptyQueries.length} combinación(es) de municipio y sector no devolvieron nada. Puede ser que no haya ese tipo de negocio mapeado ahí, no que no exista.`
+    );
+  }
+
+  const previous = options.checkpoint?.loadRecords() ?? [];
+
+  // Only the ones actually in this run's shortlist get reused. Reporting the
+  // whole checkpoint as "reused" would overstate it whenever the shortlist
+  // changed between runs.
+  const shortlist = new Set(
+    toAnalyze.map((record) =>
+      businessKey({ name: record.name, website: record.website_url, city: record.city })
+    )
+  );
+  const resumedAnalyses = previous.filter((record) =>
+    shortlist.has(businessKey(record.business))
+  ).length;
+
+  if (resumedAnalyses > 0) {
+    limitations.push(
+      `${resumedAnalyses} negocio(s) se reutilizaron de una ejecución interrumpida y no se volvieron a visitar.`
     );
   }
 
@@ -178,33 +243,71 @@ export async function sweepRegion(options: SweepOptions): Promise<SweepResult> {
 
   const batch = await analyzePortfolio(toAnalyze, {
     ...options,
+    previous,
+    onRecord: (record) => options.checkpoint?.appendRecord(record),
     onProgress: (index, total, name, status) =>
       options.onProgress?.("ANALYZE", `[${index + 1}/${total}] ${name} — ${status}`),
   });
 
   return {
-    discovered: discovered.length,
+    discovered: snapshot.discovered,
     unique: unique.length,
     analyzed: toAnalyze.length,
     skipped,
-    sources: [...sourceStats.entries()].map(([source, stats]) => ({ source, ...stats })),
-    emptyQueries,
+    sources: snapshot.sources,
+    emptyQueries: snapshot.emptyQueries,
+    discoveryResumed: cached !== null,
+    resumedAnalyses,
     batch,
     durationMs: Date.now() - startedAt,
     limitations,
   };
 }
 
-/** Rough request count, so an operator can see the cost before launching. */
+/**
+ * Rough cost, so an operator can see it before launching.
+ *
+ * The first version of this quoted "~30 min" for a full sweep that would in
+ * practice have taken hours, because it costed an analysed business at eight
+ * seconds. A fifteen-page crawl plus a Chromium launch is nowhere near eight
+ * seconds. An estimate that optimistic is worse than none: it is what makes
+ * someone leave a two-hour job unattended in a terminal they then close.
+ *
+ * So the numbers below are measured-order-of-magnitude, and the answer is a
+ * range rather than a single figure it cannot honestly promise.
+ */
+const COST_SECONDS = {
+  /** Overpass response plus the courtesy pause between queries. */
+  discoveryQueryFast: 3,
+  discoveryQuerySlow: 8,
+  /** A multi-page crawl, nine audit dimensions, and a real browser. */
+  businessFast: 20,
+  businessSlow: 70,
+} as const;
+
 export function estimateSweep(
   municipalities: number,
   categories: number,
-  maxAnalyzed: number
-): { discoveryQueries: number; siteRequests: number; estimatedMinutes: number } {
+  maxAnalyzed: number,
+  delayMs: number = SWEEP_DEFAULTS.delayMs
+): {
+  discoveryQueries: number;
+  siteRequests: number;
+  estimatedMinutes: number;
+  estimatedMinutesMax: number;
+} {
   const discoveryQueries = municipalities * categories;
   // Each analysed business gets a crawl (up to ~20 pages) plus one audit.
   const siteRequests = maxAnalyzed * 22;
-  const estimatedMinutes = Math.ceil((discoveryQueries * 2 + maxAnalyzed * 8) / 60);
 
-  return { discoveryQueries, siteRequests, estimatedMinutes };
+  const pause = (delayMs / 1000) * discoveryQueries;
+  const fast = discoveryQueries * COST_SECONDS.discoveryQueryFast + pause + maxAnalyzed * COST_SECONDS.businessFast;
+  const slow = discoveryQueries * COST_SECONDS.discoveryQuerySlow + pause + maxAnalyzed * COST_SECONDS.businessSlow;
+
+  return {
+    discoveryQueries,
+    siteRequests,
+    estimatedMinutes: Math.ceil(fast / 60),
+    estimatedMinutesMax: Math.ceil(slow / 60),
+  };
 }

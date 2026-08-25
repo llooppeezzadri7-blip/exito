@@ -46,3 +46,9 @@ yarn-error.log*
 next-env.d.ts
 
 informes/
+
+# Progreso parcial de un barrido: datos de trabajo, no fuente.
+.barrido/
+briefs/
+barrido*.json
+barrido*.log
