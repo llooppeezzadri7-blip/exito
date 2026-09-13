@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { assessValue, breakEvenOdds, fairOddsForMarket, roiAt } from "@/lib/betting/odds";
 import { screenSelection, SYSTEM_BAND } from "@/lib/betting/sportium";
 import { closingLineValue, fractionalKellyStake } from "@/lib/betting/staking";
-import { Field, Metric, Note, num, pct, Verdict } from "./ui";
+import { Field, Metric, Note, num, pct, Verdict } from "../ui";
 
 /**
  * The gatekeeper screen: does this selection enter the system at all?

@@ -20,6 +20,11 @@ const envSchema = z.object({
   WEBFLOW_SITE_ID: z.string().optional(),
   N8N_WEBHOOK_URL: z.string().url().optional(),
 
+  // Sports odds. Without ODDS_API_KEY the betting dashboard runs on clearly
+  // labelled DEMO data instead of silently showing nothing.
+  ODDS_API_KEY: z.string().optional(),
+  ODDS_API_REGION: z.string().optional(),
+
   DATA_PROVIDER: z.enum(["mock", "supabase"]).optional(),
 });
 

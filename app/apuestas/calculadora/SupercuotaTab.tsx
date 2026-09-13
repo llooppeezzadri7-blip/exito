@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { evaluateSupercuota, freebetRetention, SPORTIUM_DEFAULTS } from "@/lib/betting/sportium";
-import { Field, Metric, Note, num, pct, Verdict } from "./ui";
+import { Field, Metric, Note, num, pct, Verdict } from "../ui";
 
 /**
  * What a Sportium supercuota is really worth once the free-bet half of the

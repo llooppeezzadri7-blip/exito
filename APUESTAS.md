@@ -25,7 +25,44 @@ banda cerrada, `SYSTEM_BAND` = **1,28 – 1,45**:
 - **Por debajo de 1,28** no queda margen para el error de estimación.
 - **Por encima de 1,45**, si el mercado paga tanto es que tu "80%" probablemente no es real.
 
-## 2. Qué hay
+## 2. Estado actual de los datos: NO hay cuotas reales conectadas
+
+El sistema distingue tres orígenes y lo marca en **cada fila**, nunca de forma decorativa:
+
+| Etiqueta | Qué es | ¿Se puede apostar? |
+| -------- | ------ | ------------------ |
+| `REAL` | Cuota obtenida en vivo de una fuente real. | Sí |
+| `BACKTEST` | Medido sobre resultados históricos. Dato real, pero del pasado. | No por sí solo |
+| `DEMO` | Inventado para probar el sistema. | **Nunca** |
+
+**Ahora mismo el sistema arranca en DEMO**, porque no hay ninguna API de cuotas conectada.
+Para tener datos reales hace falta:
+
+1. Crear una clave gratuita en [the-odds-api.com](https://the-odds-api.com).
+2. Añadirla a `.env.local`: `ODDS_API_KEY=tu_clave` (y opcionalmente `ODDS_API_REGION=eu`).
+3. Reiniciar el servidor.
+
+Sin esa clave, el dashboard funciona igual pero todo sale marcado `DEMO` y la columna
+"Apostables de verdad" se queda en 0. **No hay ningún camino por el que un dato inventado
+llegue a la pantalla sin su etiqueta**, y está cubierto por tests:
+
+- Una cuota DEMO nunca es apostable, por mucho valor que muestre.
+- Una cuota real con probabilidad DEMO tampoco lo es: manda el eslabón más débil.
+- Una apuesta DEMO marcada como ganada **no suma nada** al beneficio del historial.
+
+### De dónde salen las probabilidades
+
+El sistema **no predice partidos**. No hay modelo entrenado. Solo tiene dos formas honestas
+de producir una probabilidad:
+
+- **`market-devig`**: coger un mercado completo de la casa con menos margen, quitarle la
+  comisión y quedarse con su opinión real. Sirve para buscar valor contra *otra* casa.
+- **`backtest`**: la base rate medida sobre histórico.
+
+Si no hay ninguna de las dos para un mercado, **el sistema no se inventa un número**: la
+cuota aparece en "vistas pero no analizadas" con el motivo.
+
+## 3. Qué hay
 
 | Módulo | Para qué |
 | ------ | -------- |
@@ -36,20 +73,41 @@ banda cerrada, `SYSTEM_BAND` = **1,28 – 1,45**:
 | `lib/betting/backtest.ts` | Motor de backtest con intervalo de confianza de Wilson. |
 | `lib/betting/playbook.ts` | Las estrategias concretas del sistema, como hipótesis a medir. |
 | `lib/betting/staking.ts` | Tamaño de apuesta, CLV y estimación de rachas perdedoras. |
-| `app/apuestas` | Interfaz web: `/apuestas`. |
+| `lib/betting/providers/` | Fuentes de cuotas. `the-odds-api.ts` (real) y `demo.ts` (inventado). |
+| `lib/betting/estimates.ts` | De dónde sale cada probabilidad (devig de mercado o backtest). |
+| `lib/betting/recommendations.ts` | Convierte cuotas + probabilidades en recomendaciones con origen. |
+| `lib/betting/generate.ts` | El pipeline completo, compartido por el dashboard y la CLI. |
+| `lib/betting/history.ts` | Historial persistente y P&L (excluye DEMO). |
+| `app/apuestas` | Dashboard, historial y calculadora. |
 | `scripts/backtest-apuestas.ts` | Backtest por línea de comandos. |
+| `scripts/generar-apuestas.ts` | Genera las apuestas recomendadas y las guarda. |
 
-## 3. Cómo usarlo
+## 4. Cómo usarlo
 
-### Interfaz web
+### Generar apuestas y verlas
 
 ```bash
-npm run dev     # y abre http://localhost:3000/apuestas
+npm run apuestas:generar          # genera y guarda las recomendaciones
+npm run dev                       # y abre http://localhost:3000/apuestas
 ```
 
-Cuatro pestañas: **Valor** (¿entra esta selección?), **Supercuota** (¿cuánto vale de
-verdad?), **Combinada** (el margen que se multiplica) y **Backtest** (arrastra los CSV;
-se procesan en tu navegador, no se suben a ningún sitio).
+| Pantalla | URL | Qué muestra |
+| -------- | --- | ----------- |
+| Dashboard | `/apuestas` | Apuestas recomendadas, ordenadas por valor esperado, con el origen de cada dato. |
+| Historial | `/apuestas/historial` | Qué se recomendó, a qué cuota, con qué resultado y cuánto se ganó o perdió. |
+| Calculadora | `/apuestas/calculadora` | Valor, supercuota, combinada y backtest manual. |
+
+**Ficheros generados** (ambos en `data/`, que está en `.gitignore`):
+
+- `data/apuestas-recomendadas.json` — la última tanda de apuestas.
+- `data/apuestas-historial.json` — el historial acumulado con su P&L.
+
+Opciones de la CLI:
+
+```bash
+npm run apuestas:generar -- --banca 100 --casa sportium
+npm run apuestas:generar -- --todas-las-cuotas   # sin filtrar por la banda
+```
 
 ### Backtest por terminal
 
@@ -68,7 +126,7 @@ Los datos salen de [football-data.co.uk](https://www.football-data.co.uk/spainm.
 (`SP1` = LaLiga, `E0` = Premier), la única fuente gratuita que trae resultados, córners,
 tarjetas y cuotas históricas juntos.
 
-## 4. Cuándo una estrategia "sobrevive"
+## 5. Cuándo una estrategia "sobrevive"
 
 Dos condiciones, las dos obligatorias:
 
@@ -80,7 +138,7 @@ Dos condiciones, las dos obligatorias:
 Se usa el intervalo de Wilson y no la aproximación normal porque con acierto cercano al
 80% y unos cientos de muestras, la aproximación normal se comporta mal justo ahí.
 
-## 5. Las hipótesis del playbook
+## 6. Las hipótesis del playbook
 
 Cada estrategia de `playbook.ts` es una **hipótesis con su razonamiento**, no un resultado.
 Las principales:
@@ -108,7 +166,7 @@ Las principales:
   lo son: usa el precio del creador de apuestas de Sportium, que ya incluye la correlación
   a favor de la casa.
 
-## 6. Sportium en concreto
+## 7. Sportium en concreto
 
 Los valores de `SPORTIUM_DEFAULTS` son términos **típicos**, no garantizados: el tope y la
 forma de pago cambian en cada promoción. Léelos y ajústalos.
@@ -124,7 +182,7 @@ forma de pago cambian en cada promoción. Léelos y ajústalos.
   una combinada de 4 necesita un boost del **21,6%** solo para empatar. Los boosts del 5%
   o el 10% que se anuncian siguen dejando la apuesta en negativo.
 
-## 7. Lo que esto no arregla
+## 8. Lo que esto no arregla
 
 Aunque el sistema salga positivo, el margen es fino y hay tres cosas que lo atacan:
 
@@ -141,7 +199,7 @@ Aunque el sistema salga positivo, el margen es fino y hay tres cosas que lo atac
 **El resultado más probable para un apostante particular es perder dinero.** Apuesta solo
 lo que puedas permitirte perder. Juego responsable: [ordenacionjuego.es](https://www.ordenacionjuego.es/es/jugar-bien).
 
-## 8. Tests
+## 9. Tests
 
 ```bash
 npm test -- lib/betting
@@ -151,3 +209,13 @@ La matemática está cubierta con casos comprobables: la regla del 1,25, el marg
 casa, los tres métodos para quitarlo, el ejemplo real de supercuota de Sportium, el
 intervalo de Wilson contra su valor publicado, y la demostración de que tres selecciones
 al 80% pagadas a 1,20 aciertan el 51% y aun así pierden un 11,5%.
+
+Las garantías de honestidad también son tests, no promesas:
+
+- `recommendations.test.ts` — una cuota sin probabilidad no se puntúa, se reporta; DEMO
+  nunca es apostable; el orden es por valor esperado, no por porcentaje de acierto.
+- `history.test.ts` — una apuesta DEMO ganada no suma al beneficio real.
+- `estimates.test.ts` — comparar una casa contra sí misma nunca encuentra valor.
+- `providers/providers.test.ts` — sin `ODDS_API_KEY` jamás se devuelve algo etiquetado
+  como real, y el proveedor DEMO usa equipos ficticios para que no pueda confundirse con
+  un partido de verdad.

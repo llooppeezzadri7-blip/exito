@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { evaluateCombi, requiredCombiBoost, screenSelection } from "@/lib/betting/sportium";
-import { Field, Metric, Note, num, pct, Verdict } from "./ui";
+import { Field, Metric, Note, num, pct, Verdict } from "../ui";
 
 interface Leg {
   id: string;

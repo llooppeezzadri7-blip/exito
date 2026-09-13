@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { MIN_SAMPLE, oddsNeededForRoi } from "@/lib/betting/backtest";
 import { parseSeasons } from "@/lib/betting/football-data";
 import { PLAYBOOK, runPlaybook, type StrategyReport } from "@/lib/betting/playbook";
-import { Note, pct } from "./ui";
+import { Note, pct } from "../ui";
 
 /**
  * Drop in football-data.co.uk season CSVs and measure the playbook against
