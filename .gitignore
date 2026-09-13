@@ -44,3 +44,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# datos descargados para el backtest de apuestas (football-data.co.uk)
+/data
