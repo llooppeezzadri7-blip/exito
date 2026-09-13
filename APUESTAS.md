@@ -93,9 +93,12 @@ npm run dev                       # y abre http://localhost:3000/apuestas
 
 | Pantalla | URL | Qué muestra |
 | -------- | --- | ----------- |
-| Dashboard | `/apuestas` | Apuestas recomendadas, ordenadas por valor esperado, con el origen de cada dato. |
+| Dashboard | `/apuestas` (y también `/`) | Apuestas recomendadas, ordenadas por valor esperado, con el origen de cada dato. |
 | Historial | `/apuestas/historial` | Qué se recomendó, a qué cuota, con qué resultado y cuánto se ganó o perdió. |
 | Calculadora | `/apuestas/calculadora` | Valor, supercuota, combinada y backtest manual. |
+
+La raíz `/` redirige al dashboard: es el panel principal. El producto de agencia con el
+que nació este repo sigue en `/dashboard`.
 
 **Ficheros generados** (ambos en `data/`, que está en `.gitignore`):
 

@@ -4,6 +4,8 @@ import { generateRecommendations, RECOMMENDATIONS_PATH } from "@/lib/betting/gen
 import { HISTORY_PATH } from "@/lib/betting/history";
 import { SYSTEM_BAND } from "@/lib/betting/sportium";
 import { Nav } from "./Nav";
+import { RefreshButton } from "./RefreshButton";
+import { SetupCard } from "./SetupCard";
 import { ProvenanceBanner } from "./ProvenanceBanner";
 import { RecommendationsTable } from "./RecommendationsTable";
 import { Metric } from "./ui";
@@ -26,7 +28,10 @@ export default async function DashboardPage() {
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-text-primary">Dashboard de apuestas</h1>
-          <Nav active="/apuestas" />
+          <div className="flex flex-wrap items-center gap-2">
+            <RefreshButton />
+            <Nav active="/apuestas" />
+          </div>
         </div>
 
         <ProvenanceBanner
@@ -41,6 +46,8 @@ export default async function DashboardPage() {
           </p>
         ) : null}
       </header>
+
+      {result.usingRealData ? null : <SetupCard />}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Cuotas leídas" value={String(result.quotesFetched)} hint={result.source} />
