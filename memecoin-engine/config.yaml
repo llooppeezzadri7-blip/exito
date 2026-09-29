@@ -1,0 +1,138 @@
+# MEMECOIN INTELLIGENCE ENGINE — runtime configuration.
+# Secrets NEVER go here (use .env). Everything below is tunable without code changes.
+# Values are re-validated on boot (src/config/schema.ts). Unknown keys are rejected.
+
+engine:
+  chains: [solana]            # only solana is implemented in v0.1; others are scaffolded
+  mode: read_only             # read_only | paper. Real trading does not exist in this version.
+  timezone: UTC
+
+discovery:
+  poll_interval_sec: 60       # DexScreener profiles/boosts + GeckoTerminal new pools
+  max_new_tokens_per_cycle: 150
+  min_age_minutes: 0
+  max_age_minutes: 2880       # ignore tokens older than 48h at discovery time
+  sources:
+    dexscreener_profiles: true
+    dexscreener_boosts: true
+    geckoterminal_new_pools: true
+    pumpportal_ws: true       # free "subscribeNewToken"/"subscribeMigration" stream (optional, off if unreachable)
+    rugcheck_new_tokens: true
+
+tiers:
+  # Re-evaluation cadence (seconds) per tier. Higher tier = more interesting = more resources.
+  1: { interval_sec: 900,  ttl_hours: 6,   providers: [dexscreener] }
+  2: { interval_sec: 300,  ttl_hours: 24,  providers: [dexscreener, rugcheck, solana-rpc] }
+  3: { interval_sec: 120,  ttl_hours: 72,  providers: [dexscreener, rugcheck, solana-rpc, geckoterminal] }
+  4: { interval_sec: 60,   ttl_hours: 168, providers: [dexscreener, rugcheck, solana-rpc, geckoterminal, helius] }
+  promote:
+    to_2_min_liquidity_usd: 5000
+    to_2_min_volume_h1_usd: 2000
+    to_3_min_score: 45
+    to_4_min_score: 65
+  demote_after_cycles_below: 6
+
+filters:
+  # Hard pre-filters (deterministic). Tokens failing these are REJECTED, not scored.
+  min_liquidity_usd: 3000
+  max_top10_holder_pct: 70
+  max_single_holder_pct_excl_lp: 30
+  reject_if_freeze_authority: true
+  reject_if_mint_authority: true
+  min_holders: 25
+  min_unique_buyers_h1: 10
+  min_data_quality: 0.45
+
+risk_gates:
+  # Deterministic. ML/weights may NEVER change these (see docs/RISK_ENGINE.md).
+  max_rug_risk_for_opportunity: 65        # 0..100 rug risk index
+  max_exit_risk_for_opportunity: 70       # 0..100
+  min_data_quality_for_opportunity: 0.6   # 0..1
+  min_security_score: 55
+  high_conviction_min_score: 72
+  high_conviction_min_independent_signals: 3
+  watchlist_min_score: 50
+  extreme_risk_rug_threshold: 80
+
+scoring:
+  # Positive contribution weights (points at 100% factor strength). Sum ~ 100 before penalties.
+  weights:
+    early_momentum: 18
+    holder_growth: 14
+    liquidity: 12
+    social_momentum: 10
+    narrative: 9
+    market_quality: 12
+    security: 10
+    deployer: 7
+    wallet_quality: 8
+  penalties:
+    wallet_concentration_max: 15
+    deployer_uncertainty_max: 10
+    exit_risk_max: 12
+    late_phase_max: 20
+    exhausted_phase_max: 35
+    narrative_saturation_max: 8
+    anomaly_max: 10
+    conflict_max: 10
+  confidence:
+    min_snapshots_for_medium: 3
+    min_snapshots_for_high: 8
+    min_data_quality_for_high: 0.8
+
+no_fomo:
+  late_if_price_change_h1_pct: 150
+  late_if_price_change_h24_pct: 400
+  exhausted_if_volume_drop_pct: 60      # volume 1h vs prior 1h
+  exhausted_if_price_from_ath_pct: -45
+  vertical_pump_m5_pct: 60
+
+liquidity:
+  healthy_liq_to_mc_min: 0.08
+  healthy_liq_to_mc_max: 0.6
+  drop_alert_pct: 30
+  suspicious_volume_to_liq_ratio: 25
+
+holders:
+  whale_pct: 3
+  cluster_min_wallets: 3
+  cluster_time_window_sec: 90
+
+social:
+  spike_zscore: 3
+  saturation_mentions_per_hour: 400
+
+alerts:
+  cooldown_minutes: 45
+  max_per_hour: 12
+  min_score_for_new_high_potential: 65
+  channels:
+    telegram: true
+    discord: false
+    dashboard: true
+
+paper_trading:
+  enabled: true
+  bankroll_usd: 1000
+  position_pct: 2
+  max_open_positions: 10
+  slippage_pct: 2.5
+  fee_pct: 0.6
+  stop_loss_pct: -35
+  take_profit_pct: 120
+  max_hold_hours: 24
+  trailing_stop_pct: 25
+
+learning:
+  horizons_hours: [1, 4, 24]
+  big_move_pct: 100
+  big_drop_pct: -60
+  min_samples_for_stats: 30
+
+monitor:
+  outcome_resolver_interval_sec: 300
+  health_interval_sec: 60
+  snapshot_retention_days: 30
+  queue_max_attempts: 5
+  worker_concurrency: 4
+  data_stale_after_sec: 900

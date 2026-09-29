@@ -22,6 +22,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone Node project with its own toolchain (see memecoin-engine/).
+    "memecoin-engine/**",
   ]),
 ]);
 

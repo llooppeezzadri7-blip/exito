@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Token — Memecoin Intelligence Engine</title><link rel="stylesheet" href="/styles.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script></head>
+<body>
+<header><h1>MEMECOIN INTELLIGENCE ENGINE</h1><span class="live" id="live"><span class="dot"></span><span class="t">…</span></span><nav><a href="/">Live market</a><a href="/health.html">Health</a><a href="/paper.html">Paper trading</a></nav></header>
+<main id="main"><div class="muted">loading…</div></main>
+<script src="/app.js"></script>
+<script>
+const { API, usd, num, age, esc, riskBadge, catBadge, phaseBadge, bar, setLive, post } = window.D;
+const mint = new URLSearchParams(location.search).get("mint");
+const charts = {};
+function chart(id, label, series, key, color) { const ctx = document.getElementById(id); if (!ctx) return; if (charts[id]) charts[id].destroy(); charts[id] = new Chart(ctx, { type: "line", data: { labels: series.map((s) => new Date(s.t).toLocaleTimeString()), datasets: [{ label, data: series.map((s) => s[key]), borderColor: color, backgroundColor: color + "22", fill: true, pointRadius: 0, tension: .2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#8b93a7", maxTicksLimit: 6 }, grid: { color: "#232b3b" } }, y: { ticks: { color: "#8b93a7" }, grid: { color: "#232b3b" } } } } }); }
+async function load() {
+  const d = await API(`/api/tokens/${mint}`).catch((e) => ({ error: e.message }));
+  const health = await API("/api/health").catch(() => null); setLive(health);
+  if (d.error) { document.getElementById("main").innerHTML = `<div class="card">${esc(d.error)} — <button class="btn" onclick="act('analyze')">ANALYZE NOW</button></div>`; return; }
+  const t = d.token, o = d.opportunity, s = d.latest, sec = d.security, dep = d.deployer;
+  const dq = s ? Math.round(s.dataQuality * 100) : null;
+  document.getElementById("main").innerHTML = `
+  <div class="card"><h3 style="margin:0 0 6px;font-size:20px">$${esc(t.symbol || "?")} <span class="muted small">${esc(t.name || "")}</span> ${o ? catBadge(o.category) + " " + phaseBadge(o.phase) + " " + riskBadge(o.risk) : ""}</h3>
+    <div class="mono muted">${esc(t.mint)} · ${esc(t.chain)} · tier ${t.tier} · status ${esc(t.status)}${t.rejectReason ? " · " + esc(t.rejectReason) : ""}</div>
+    <div style="margin-top:8px"><button class="btn" onclick="act('analyze')">RE-ANALYZE</button><button class="btn" onclick="act('watch')">WATCH (tier 4)</button><button class="btn" onclick="act('paper-trade')">PAPER TRADE</button><button class="btn danger" onclick="act('ignore')">IGNORE</button>
+      <a class="btn" target="_blank" rel="noopener" href="https://solscan.io/token/${t.mint}">VIEW ONCHAIN DATA</a><a class="btn" target="_blank" rel="noopener" href="https://dexscreener.com/solana/${t.mint}">VIEW CHART</a><a class="btn" target="_blank" rel="noopener" href="https://rugcheck.xyz/tokens/${t.mint}">VIEW SECURITY</a></div>
+    <div class="small muted" style="margin-top:6px">Last snapshot ${s ? age(s.observedAt) + " ago" : "never"} · sources: ${esc((s?.sources || []).join(", ") || "none")} · data quality ${dq ?? "—"}% · The bot never executes trades; these buttons are for manual research only.</div></div>
+  <div class="grid stats" style="margin-top:12px">
+    <div class="card stat"><div class="v">${o?.score ?? "—"}</div><div class="l">OPPORTUNITY · ${esc(o?.confidence || "")}</div></div>
+    <div class="card stat"><div class="v">${o?.rugRisk ?? "—"}</div><div class="l">RUG RISK INDEX</div></div>
+    <div class="card stat"><div class="v">${o?.exitRisk ?? "—"}</div><div class="l">EXIT RISK</div></div>
+    <div class="card stat"><div class="v">${usd(s?.marketCapUsd)}</div><div class="l">MARKET CAP</div></div>
+    <div class="card stat"><div class="v">${usd(s?.liquidityUsd)}</div><div class="l">LIQUIDITY</div></div>
+    <div class="card stat"><div class="v">${num(s?.holders)}</div><div class="l">HOLDERS</div></div>
+    <div class="card stat"><div class="v">${age(t.createdAt)}</div><div class="l">AGE</div></div>
+    <div class="card stat"><div class="v small">${esc(o?.thesis?.replace(/_/g, " ") || "—")}</div><div class="l">THESIS</div></div>
+  </div>
+  <div class="grid three" style="margin-top:12px">
+    <div class="card"><h2>Price</h2><div class="chart"><canvas id="c-price"></canvas></div></div>
+    <div class="card"><h2>Volume 1h</h2><div class="chart"><canvas id="c-vol"></canvas></div></div>
+    <div class="card"><h2>Liquidity</h2><div class="chart"><canvas id="c-liq"></canvas></div></div>
+    <div class="card"><h2>Holders</h2><div class="chart"><canvas id="c-hold"></canvas></div></div>
+  </div>
+  <div class="grid three" style="margin-top:12px">
+    <div class="card"><h2>Score breakdown</h2>${o ? `<ul class="breakdown small" style="padding-left:0;list-style:none;margin:0">${o.breakdown.map((b) => `<li><span>${esc(b.reason)}</span><b class="${b.points >= 0 ? "pos" : "neg"}">${b.points >= 0 ? "+" : ""}${b.points}</b></li>`).join("")}</ul><div class="small muted" style="margin-top:6px">Status: ${esc(o.statusText)}</div>` : '<span class="muted">not scored yet</span>'}</div>
+    <div class="card"><h2>Risk gates</h2>${o ? `<table>${o.gates.map((g) => `<tr><td>${esc(g.gate)}</td><td><span class="badge ${g.passed ? "b-green" : "b-red"}">${g.passed ? "pass" : "FAIL"}</span></td><td class="muted">${esc(g.detail)}</td></tr>`).join("")}</table>` : "—"}<h2 style="margin-top:12px">Subscores</h2>${o ? `<div class="kv">${Object.entries(o.subscores).map(([k, v]) => `<b>${esc(k)}</b>${bar(v)}`).join("")}</div>` : ""}</div>
+    <div class="card"><h2>Bull case</h2><ul class="small">${(o?.bullCase || []).map((x) => `<li class="pos">${esc(x)}</li>`).join("") || "<li class='muted'>none</li>"}</ul><h2>Bear case</h2><ul class="small">${(o?.bearCase || []).map((x) => `<li class="neg">${esc(x)}</li>`).join("")}</ul><h2>Conflicts</h2><ul class="small">${(o?.conflicts || []).map((x) => `<li class="muted">${esc(x)}</li>`).join("") || "<li class='muted'>none</li>"}</ul></div>
+  </div>
+  <div class="grid three" style="margin-top:12px">
+    <div class="card"><h2>Security (on-chain)</h2>${sec ? `<div class="kv">${[["mint authority", sec.mintAuthorityActive], ["freeze authority", sec.freezeAuthorityActive], ["token program", sec.tokenProgram], ["extensions", sec.extensions], ["permanent delegate", sec.permanentDelegate], ["transfer hook", sec.transferHook], ["transfer fee bps", sec.transferFeeBps], ["metadata mutable", sec.metadataMutable], ["supply", sec.supply]].map(([k, v]) => `<b>${k}</b><span>${v.value === null ? '<span class="badge b-gray">UNKNOWN</span>' : esc(Array.isArray(v.value) ? v.value.join(", ") || "none" : String(v.value))} <span class="muted small">${esc(v.source)} · ${esc(v.confidence)}</span></span>`).join("")}</div>` : '<span class="muted">not read yet (tier 1)</span>'}
+      ${d.securityReport ? `<h2 style="margin-top:10px">Third-party report (${esc(d.securityReport.source)})</h2><div class="small">risk index ${d.securityReport.riskIndex.value ?? "?"}/100 · rugged: ${String(d.securityReport.rugged.value)} · insiders: ${d.securityReport.insidersDetected.value ?? "?"} · LP locked: ${d.securityReport.lpLockedPct.value ?? "?"}%</div><ul class="small">${d.securityReport.risks.map((r) => `<li>${esc(r.level)}: ${esc(r.name)} ${esc(r.description || "")}</li>`).join("")}</ul>` : ""}</div>
+    <div class="card"><h2>Top holders</h2><table><tr><th>Wallet</th><th>%</th><th>Label</th></tr>${d.holders.slice(0, 20).map((h) => `<tr><td class="mono"><a target="_blank" rel="noopener" href="https://solscan.io/account/${h.owner || h.address}">${esc((h.owner || h.address).slice(0, 6))}…</a></td><td>${num(h.pct, 2)}</td><td class="muted small">${h.isLpPool ? "pool/vault" : ""} ${esc(h.label || "")}</td></tr>`).join("") || "<tr><td colspan=3 class='muted'>unknown</td></tr>"}</table></div>
+    <div class="card"><h2>Deployer</h2>${t.deployer ? `<div class="mono"><a target="_blank" rel="noopener" href="https://solscan.io/account/${t.deployer}">${esc(t.deployer)}</a></div>${dep ? `<div class="kv small" style="margin-top:6px"><b>reputation</b><span>${esc(dep.reputation)} (${dep.reputationScore ?? "—"})</span><b>tokens tracked</b><span>${dep.tokensCreated}</span><b>rugged</b><span>${dep.tokensRugged}</span><b>abandoned</b><span>${dep.tokensAbandoned}</span></div>` : ""}` : '<span class="badge b-gray">UNKNOWN</span>'}
+      <h2 style="margin-top:10px">Wallet clusters</h2>${d.clusters.length ? d.clusters.map((c) => `<div class="setup risk small"><b>POTENTIAL_CLUSTER</b> · ${c.wallets.length} wallets · ${c.supplyPct ?? "?"}% supply · risk ${c.riskScore}<ul>${c.evidence.map((e) => `<li>${esc(e.statement)}</li>`).join("")}</ul><div class="mono muted">${c.wallets.map((w) => w.slice(0, 6)).join(", ")}</div></div>`).join("") : '<span class="muted small">none detected (or not yet profiled — tier 3+)</span>'}
+      <h2 style="margin-top:10px">Entry zones (descriptive)</h2>${o?.entryZones ? `<div class="kv small">${Object.entries(o.entryZones).map(([k, v]) => `<b>${esc(k)}</b><span>${esc(v)}</span>`).join("")}</div>` : '<span class="muted small">not enough structure yet</span>'}</div>
+  </div>
+  <div class="grid three" style="margin-top:12px">
+    <div class="card"><h2>Social &amp; narrative</h2>${d.social ? `<div class="kv small"><b>mentions 1h/24h</b><span>${d.social.mentions1h.value ?? "?"} / ${d.social.mentions24h.value ?? "?"}</span><b>unique authors</b><span>${d.social.uniqueAuthors24h.value ?? "?"}</span><b>new-account share</b><span>${d.social.newAccountShare.value == null ? "?" : Math.round(d.social.newAccountShare.value * 100) + "%"}</span><b>telegram members</b><span>${d.social.telegramMembers.value ?? "?"}</span><b>links</b><span>${d.social.hasWebsite ? "web " : ""}${d.social.hasTwitter ? "x " : ""}${d.social.hasTelegram ? "tg" : ""}</span><b>sources</b><span>${esc(d.social.sources.join(", ") || "none")}</span></div>` : '<span class="muted small">no social data (tier 3+)</span>'}<div class="small" style="margin-top:6px">narrative momentum: ${num(o?.subscores?.narrative_momentum)} · social momentum: ${num(o?.subscores?.social_momentum)}</div></div>
+    <div class="card"><h2>Similar historical patterns</h2><ul class="small">${d.similar.text.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><div class="muted small">Descriptive only: similarity never implies the same outcome.</div></div>
+    <div class="card"><h2>Alerts</h2>${d.alerts.length ? d.alerts.map((a) => `<details class="small"><summary>${esc(a.title)} <span class="muted">${age(a.createdAt)} ago</span></summary><pre>${esc(a.body)}</pre></details>`).join("") : '<span class="muted small">none</span>'}<h2 style="margin-top:10px">Risk events</h2>${d.riskEvents.map((r) => `<div class="small"><span class="badge b-red">${esc(r.severity)}</span> ${esc(r.type)} — ${esc(r.message)} <span class="muted">${age(r.at)} ago</span></div>`).join("") || '<span class="muted small">none</span>'}</div>
+  </div>
+  <div class="grid three" style="margin-top:12px">
+    <div class="card"><h2>Prediction history</h2><table><tr><th>Made</th><th>Horizon</th><th>Category</th><th>Score</th><th>Outcome</th></tr>${d.predictions.map((p) => { const oc = d.outcomes.find((x) => x.predictionId === p.id); return `<tr><td>${age(p.madeAt)} ago</td><td>${p.horizonHours}h</td><td>${catBadge(p.category)}</td><td>${p.score ?? "—"}</td><td>${oc ? esc(oc.label) + (oc.returnPct != null ? " (" + (oc.returnPct > 0 ? "+" : "") + oc.returnPct + "%)" : "") : '<span class="muted">pending</span>'}</td></tr>`; }).join("") || "<tr><td colspan=5 class='muted'>none</td></tr>"}</table></div>
+    <div class="card"><h2>Recent trades (tape)</h2><table><tr><th>Time</th><th>Side</th><th>USD</th><th>Wallet</th></tr>${d.trades.slice(-40).reverse().map((x) => `<tr><td>${new Date(x.ts).toLocaleTimeString()}</td><td class="${x.kind === "buy" ? "pos" : "neg"}">${x.kind}</td><td>${usd(x.amountUsd)}</td><td class="mono">${esc((x.wallet || "?").slice(0, 6))}</td></tr>`).join("") || "<tr><td colspan=4 class='muted'>no tape (tier 3+)</td></tr>"}</table></div>
+    <div class="card"><h2>Audit trail</h2>${d.audit.map((a) => `<details class="small"><summary>${esc(a.action)} · ${age(a.at)} ago · ${esc(a.actor)}</summary><pre>${esc(JSON.stringify(a.data, null, 1))}</pre></details>`).join("")}</div>
+  </div>
+  <p class="disclaimer">Facts are labeled by source and timestamp; scores are inferences. UNKNOWN is never filled in. Not financial advice.</p>`;
+  chart("c-price", "price", d.series, "price", "#4c8dff"); chart("c-vol", "vol 1h", d.series, "vol1h", "#a77bff"); chart("c-liq", "liquidity", d.series, "liq", "#2ecc71"); chart("c-hold", "holders", d.series, "holders", "#f5b83d");
+}
+async function act(a) { try { const r = await post(`/api/tokens/${mint}/${a}`); alert(a + ": ok" + (r.opportunity ? ` — ${r.opportunity.category} score ${r.opportunity.score}` : "")); load(); } catch (e) { alert(a + " failed: " + e.message); } }
+load();
+</script>
+</body></html>

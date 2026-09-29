@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Memecoin Intelligence Engine</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header><h1>MEMECOIN INTELLIGENCE ENGINE</h1><span class="live" id="live"><span class="dot"></span><span class="t">…</span></span><nav><a class="active" href="/">Live market</a><a href="/health.html">Health</a><a href="/paper.html">Paper trading</a></nav><span class="muted small" id="updated"></span></header>
+<main>
+  <div class="grid stats" id="stats"></div>
+  <div class="grid two" style="margin-top:12px">
+    <div>
+      <div class="card"><h2>🔥 Top current setups</h2><div id="setups" class="muted">loading…</div></div>
+      <div class="card" style="margin-top:12px"><h2>Live market</h2>
+        <div class="filters">
+          <select id="f-status"><option value="NEW,MONITORED">active</option><option value="MONITORED">monitored</option><option value="REJECTED">rejected</option><option value="NEW,MONITORED,REJECTED,ARCHIVED">all</option></select>
+          <select id="f-category"><option value="">any category</option><option>HIGH_CONVICTION_SETUP</option><option>WATCHLIST</option><option>EXTREME_RISK</option><option>NO_OPPORTUNITY</option><option>INSUFFICIENT_DATA</option><option>SECURITY_UNVERIFIED</option><option>INVESTIGATE</option><option>REJECTED</option></select>
+          <select id="f-risk"><option value="">any risk</option><option>RELATIVELY_LOW_RISK</option><option>LOW_RISK</option><option>MEDIUM_RISK</option><option>HIGH_RISK</option><option>EXTREME_RISK</option><option>UNKNOWN</option></select>
+          <select id="f-phase"><option value="">any phase</option><option>EARLY</option><option>LATE</option><option>EXHAUSTED</option></select>
+          <input id="f-score" type="number" placeholder="min score" style="width:90px"><input id="f-liq" type="number" placeholder="min liquidity $" style="width:120px"><input id="f-age" type="number" placeholder="max age (min)" style="width:110px"><input id="f-search" placeholder="symbol / mint" style="width:140px">
+          <input id="f-narrative" placeholder="narrative key" style="width:110px">
+        </div>
+        <table id="market"><thead><tr><th data-k="symbol">Token</th><th data-k="age">Age</th><th data-k="mc">MC</th><th data-k="liq">Liquidity</th><th data-k="vol">Vol 1h</th><th data-k="holders">Holders</th><th data-k="mom">Momentum</th><th data-k="sec">Security</th><th data-k="risk">Risk</th><th data-k="score">Opportunity</th><th data-k="status">Status</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div>
+      <div class="card"><h2>🚨 Risk alerts (24h)</h2><div id="risk" class="muted">loading…</div></div>
+      <div class="card" style="margin-top:12px"><h2>Recent alerts</h2><div id="alerts" class="muted small">loading…</div></div>
+      <div class="card" style="margin-top:12px"><h2>Narratives</h2><div id="narratives" class="small muted">loading…</div></div>
+    </div>
+  </div>
+  <p class="disclaimer">Research tool. Read-only, paper trading only. Nothing here is financial advice; every listed token is an extremely speculative asset and no score predicts price. "NO OPPORTUNITY" is a valid and expected result. All data carries source + timestamp; UNKNOWN means not verifiable, never assumed.</p>
+</main>
+<script src="/app.js"></script>
+<script>
+const { API, usd, num, age, esc, riskBadge, catBadge, phaseBadge, bar, setLive } = window.D;
+let rows = []; let sortKey = "score"; let sortDir = -1;
+function q(id) { return document.getElementById(id).value; }
+async function load() {
+  try {
+    const [stats, opps, tokens, alerts, risk, health, narratives] = await Promise.all([API("/api/stats"), API("/api/opportunities?limit=8"), API(`/api/tokens?status=${q("f-status")}&limit=300${q("f-category") ? "&category=" + q("f-category") : ""}${q("f-risk") ? "&risk=" + q("f-risk") : ""}${q("f-phase") ? "&phase=" + q("f-phase") : ""}${q("f-score") ? "&minScore=" + q("f-score") : ""}${q("f-liq") ? "&minLiquidity=" + q("f-liq") : ""}${q("f-age") ? "&maxAgeMinutes=" + q("f-age") : ""}`), API("/api/alerts?limit=15"), API("/api/risk-events?limit=20"), API("/api/health"), API("/api/narratives")]);
+    setLive(health);
+    document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString();
+    const s = stats; const noTrade = s.noTradePct;
+    document.getElementById("stats").innerHTML = [["SCANNING", s.scanning + " tokens"], ["HIGH QUALITY", s.highQuality], ["WATCHLIST", s.watchlist], ["REJECTED", s.rejected], ["NO TRADE", noTrade == null ? "—" : noTrade + "%"], ["EXTREME RISK", s.EXTREME_RISK || 0]].map(([l, v]) => `<div class="card stat"><div class="v">${esc(v)}</div><div class="l">${l}</div></div>`).join("");
+    const setups = opps.items.filter((o) => o.category === "HIGH_CONVICTION_SETUP" || o.category === "WATCHLIST");
+    document.getElementById("setups").innerHTML = setups.length ? setups.map((o) => `<div class="setup"><h3><a href="/token.html?mint=${o.mint}">$${esc(o.token?.symbol || o.mint.slice(0, 6))}</a> ${catBadge(o.category)} ${phaseBadge(o.phase)} <span class="muted small">age ${age(o.token?.createdAt)} · MC ${usd(o.snapshot?.marketCapUsd)} · Liq ${usd(o.snapshot?.liquidityUsd)}</span></h3>
+      <div class="kv"><b>Opportunity</b><span>${o.score} · Risk ${riskBadge(o.risk)} · Confidence ${esc(o.confidence)}</span><b>Momentum</b><span>${num(o.subscores.early_momentum)} · Security ${num(o.subscores.security)} · Liquidity ${num(o.subscores.liquidity)} · Wallets ${num(o.subscores.wallet_quality)} · Social ${num(o.subscores.social_momentum)}</span></div>
+      <b class="small">Why detected</b><ul class="small">${o.whyDetected.map((w) => `<li>${esc(w)}</li>`).join("")}</ul><b class="small">Risks</b><ul class="small">${o.risks.slice(0, 4).map((w) => `<li class="neg">${esc(w)}</li>`).join("")}</ul><div class="small muted">Status: ${esc(o.statusText)} · computed ${age(o.computedAt)} ago</div></div>`).join("") : `<div class="setup risk"><h3>NO OPPORTUNITY</h3><div class="small muted">No token currently passes the risk gates with enough independent signals. This is a correct result.</div></div>`;
+    rows = tokens.map((t) => ({ t, symbol: t.symbol || t.mint.slice(0, 6), age: t.createdAt ? Date.now() - new Date(t.createdAt).getTime() : Infinity, mc: t.snapshot?.marketCapUsd ?? -1, liq: t.snapshot?.liquidityUsd ?? -1, vol: t.snapshot?.volumeH1Usd ?? -1, holders: t.snapshot?.holders ?? -1, mom: t.opportunity?.subscores?.early_momentum ?? -1, sec: t.opportunity?.subscores?.security ?? -1, risk: t.opportunity?.risk || "", score: t.opportunity?.score ?? -1, status: t.opportunity?.category || t.status }));
+    render();
+    document.getElementById("risk").innerHTML = risk.length ? risk.map((r) => `<div class="setup risk small"><b><a href="/token.html?mint=${r.mint}">${esc(r.mint.slice(0, 8))}…</a></b> <span class="badge b-red">${esc(r.type)}</span><div>${esc(r.message)}</div><div class="muted">${age(r.at)} ago</div></div>`).join("") : '<span class="muted">none</span>';
+    document.getElementById("alerts").innerHTML = alerts.length ? alerts.map((a) => `<div style="margin-bottom:6px"><a href="/token.html?mint=${a.mint}">${esc(a.title)}</a><div class="muted">${age(a.createdAt)} ago · ${esc((a.deliveredTo || []).join(", ") || "not delivered")}</div></div>`).join("") : "none yet";
+    document.getElementById("narratives").innerHTML = narratives.length ? `<table><tr><th>Narrative</th><th>Tokens 24h</th><th>Momentum</th><th>Fresh</th><th>Saturation</th></tr>${narratives.map((n) => `<tr><td>${esc(n.label)}</td><td>${n.tokensCount}</td><td>${num(n.momentum)}</td><td>${num(n.freshness)}</td><td>${n.saturation == null ? "—" : Math.round(n.saturation * 100) + "%"}</td></tr>`).join("")}</table>` : "no narrative data yet";
+  } catch (e) { document.getElementById("setups").innerHTML = `<span class="neg">API error: ${esc(e.message)}</span>`; }
+}
+function render() {
+  const search = q("f-search").toLowerCase(); const nar = q("f-narrative").toLowerCase();
+  const list = rows.filter((r) => (!search || r.symbol.toLowerCase().includes(search) || r.t.mint.toLowerCase().includes(search)) && (!nar || (r.t.name || "").toLowerCase().includes(nar) || r.symbol.toLowerCase().includes(nar))).sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0) * sortDir);
+  document.querySelector("#market tbody").innerHTML = list.map((r) => { const t = r.t; const o = t.opportunity; return `<tr><td><a href="/token.html?mint=${t.mint}">$${esc(r.symbol)}</a><div class="muted small">T${t.tier} · ${esc(t.discoverySources.join(",").slice(0, 30))}</div></td><td>${age(t.createdAt)}</td><td>${usd(t.snapshot?.marketCapUsd)}</td><td>${usd(t.snapshot?.liquidityUsd)}</td><td>${usd(t.snapshot?.volumeH1Usd)}</td><td>${num(t.snapshot?.holders)}</td><td>${bar(o?.subscores?.early_momentum)}</td><td>${bar(o?.subscores?.security)}</td><td>${riskBadge(o?.risk)}</td><td>${bar(o?.score)}</td><td>${catBadge(o?.category || t.status)}${o ? " " + phaseBadge(o.phase) : ""}</td></tr>`; }).join("") || '<tr><td colspan="11" class="muted">no tokens match</td></tr>';
+}
+document.querySelectorAll("#market th").forEach((th) => th.addEventListener("click", () => { const k = th.dataset.k; if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = k === "symbol" || k === "age" ? 1 : -1; } render(); }));
+document.querySelectorAll(".filters select, .filters input").forEach((el) => el.addEventListener("change", load));
+document.getElementById("f-search").addEventListener("input", render); document.getElementById("f-narrative").addEventListener("input", render);
+load(); setInterval(load, 30000);
+</script>
+</body></html>

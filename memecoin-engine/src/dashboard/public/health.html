@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Health — Memecoin Intelligence Engine</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header><h1>MEMECOIN INTELLIGENCE ENGINE</h1><span class="live" id="live"><span class="dot"></span><span class="t">…</span></span><nav><a href="/">Live market</a><a class="active" href="/health.html">Health</a><a href="/paper.html">Paper trading</a></nav></header>
+<main id="main"><div class="muted">loading…</div></main>
+<script src="/app.js"></script>
+<script>
+const { API, esc, num, age, setLive } = window.D;
+const st = (s) => `<span class="badge ${s === "OK" ? "b-green" : s === "DEGRADED" ? "b-amber" : s === "UNCONFIGURED" ? "b-gray" : "b-red"}">${esc(s)}</span>`;
+async function load() {
+  const h = await API("/api/health"); setLive(h);
+  const dead = await API("/api/queue/dead").catch(() => []);
+  const c = h.counters;
+  document.getElementById("main").innerHTML = `
+  <div class="grid stats">${[["TOKENS SCANNED", c.tokens_total], ["TOKENS MONITORED", c.tokens_monitored], ["TOKENS REJECTED", c.tokens_rejected], ["ALERTS 24H", c.alerts_24h], ["DATA LATENCY", h.dataLatencySec == null ? "—" : h.dataLatencySec + "s"], ["ERROR RATE", h.errorRate == null ? "—" : Math.round(h.errorRate * 100) + "%"], ["DB", h.workers.db], ["QUEUE PENDING", h.queue.PENDING || 0], ["QUEUE DEAD", h.queue.DEAD || 0]].map(([l, v]) => `<div class="card stat"><div class="v">${esc(v ?? "—")}</div><div class="l">${l}</div></div>`).join("")}</div>
+  <div class="grid three" style="margin-top:12px">
+    <div class="card"><h2>API / RPC status</h2><table><tr><th>Provider</th><th>Capability</th><th>Status</th><th>OK</th><th>Fail</th><th>Latency</th><th>Last error</th></tr>${h.providers.map((p) => `<tr><td>${esc(p.id)}</td><td>${esc(p.capability)}</td><td>${st(p.status)}</td><td>${p.successes}</td><td>${p.failures}</td><td>${p.avgLatencyMs ?? "—"}ms</td><td class="muted small">${esc((p.lastError || "").slice(0, 60))}</td></tr>`).join("")}</table></div>
+    <div class="card"><h2>Workers / loops</h2><table><tr><th>Loop</th><th>Interval</th><th>Runs</th><th>Errors</th><th>Last</th><th>Duration</th></tr>${(h.workers.loops || []).map((l) => `<tr><td>${esc(l.name)}${l.running ? ' <span class="badge b-blue">running</span>' : ""}</td><td>${l.intervalMs / 1000}s</td><td>${l.runs}</td><td class="${l.errors ? "neg" : ""}">${l.errors}</td><td>${l.lastRunAt ? age(l.lastRunAt) + " ago" : "—"}</td><td>${l.lastDurationMs ?? "—"}ms</td></tr>`).join("")}</table><div class="small" style="margin-top:8px">streams: ${(h.workers.streams || []).map((s) => `${esc(s.id)} ${s.running ? '<span class="badge b-green">connected</span>' : '<span class="badge b-amber">disconnected</span>'}`).join(" ") || "none"} · learned weights active: ${h.workers.learnedWeights ? "yes" : "no"}</div></div>
+    <div class="card"><h2>Counters</h2><div class="kv small">${Object.entries(c).sort().map(([k, v]) => `<b>${esc(k)}</b><span>${esc(v)}</span>`).join("")}</div></div>
+  </div>
+  <div class="card" style="margin-top:12px"><h2>Dead-letter jobs</h2>${dead.length ? `<table><tr><th>ID</th><th>Queue</th><th>Payload</th><th>Attempts</th><th>Error</th><th></th></tr>${dead.map((j) => `<tr><td>${j.id}</td><td>${esc(j.queue)}</td><td class="mono">${esc(JSON.stringify(j.payload).slice(0, 60))}</td><td>${j.attempts}</td><td class="muted small">${esc((j.lastError || "").slice(0, 80))}</td><td><button class="btn" onclick="window.D.post('/api/queue/dead/${j.id}/requeue').then(load)">requeue</button></td></tr>`).join("")}</table>` : '<span class="muted">none</span>'}</div>
+  <div class="small muted" style="margin-top:8px">snapshot at ${esc(h.at)}</div>`;
+}
+load(); setInterval(load, 20000);
+</script>
+</body></html>
