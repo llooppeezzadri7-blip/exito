@@ -13,7 +13,8 @@ export interface AdversarialAnalysis {
  * The bear case always asks: what would prove us wrong? what if volume -70%? whales sell? liquidity leaves?
  */
 export function adversarialAnalysis(results: AnalyzerResult[], metrics: TokenMetrics): AdversarialAnalysis {
-  const g = (k: string): number | null => metrics[k] ?? null;
+  // token-level metrics first, then analyzer-level metrics (e.g. est_impact_5k_pct lives on the liquidity result)
+  const g = (k: string): number | null => metrics[k] ?? results.map((r) => r.metrics[k]).find((v) => v !== null && v !== undefined) ?? null;
   const flags = new Set(results.flatMap((r) => r.flags.filter((f) => f.severity !== "INFO").map((f) => f.code)));
   const score = (name: string) => results.find((r) => r.analyzer === name)?.score ?? null;
   const bull: string[] = [];
@@ -55,7 +56,8 @@ export function adversarialAnalysis(results: AnalyzerResult[], metrics: TokenMet
   const pc1 = g("price_change_h1");
   if (pc1 !== null && pc1 > 100) bear.push(`already +${fmt(pc1)}% in 1h — asymmetric downside if momentum stalls`);
   const liq = g("liquidity_usd");
-  if (liq !== null) bear.push(`if volume drops 70% the $${Math.round(liq / 1000)}k pool implies ~${fmt(g("est_impact_5k_pct"), 1)}% impact per $5k sell`);
+  const impact5k = g("est_impact_5k_pct");
+  if (liq !== null && impact5k !== null) bear.push(`a $5k sell into the $${Math.round(liq / 1000)}k pool moves price ~${fmt(impact5k, 1)}%; if volume drops 70% exits get harder`);
   const w = g("whale_count");
   if (w !== null && w > 0) bear.push(`${w} wallet(s) above whale size: a coordinated exit would exceed available liquidity`);
   if ((metrics.snapshots_count ?? 0) < 4) bear.push("limited trading history — behaviour not yet observed across timeframes");

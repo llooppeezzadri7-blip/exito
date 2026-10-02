@@ -29,6 +29,8 @@ tiers:
     to_2_min_liquidity_usd: 5000
     to_2_min_volume_h1_usd: 2000
     to_3_min_score: 45
+    # Deep data (tape, wallet profiles, social) only exists from tier 3, so participation alone must be able to earn it.
+    to_3_min_early_momentum: 65
     to_4_min_score: 65
   demote_after_cycles_below: 6
 

@@ -205,7 +205,7 @@ export async function analyzeToken(ctx: EngineContext, token: TokenRecord, opts:
   }
 
   // ---- tier / status update ----
-  const tierAfter = nextTier(ctx, token, scored.score, scored.category, record);
+  const tierAfter = nextTier(ctx, token, scored.score, scored.category, record, scored.subscores.early_momentum ?? null, gates.blockAsOpportunity);
   const status: TokenRecord["status"] = scored.category === "REJECTED" ? "REJECTED" : "MONITORED";
   const interval = status === "REJECTED" ? 6 * 3600 : cfg.tiers[tierAfter].interval_sec;
   const ageH = token.createdAt ? (now.getTime() - new Date(token.createdAt).getTime()) / 3_600_000 : 0;
@@ -236,17 +236,18 @@ export async function analyzeToken(ctx: EngineContext, token: TokenRecord, opts:
   return { token: { ...token, ...patch } as TokenRecord, snapshot, snapshotId, metrics, results, opportunity, previous, newFlags, thesisReasons: thesis.reasons, tierBefore: tier, tierAfter };
 }
 
-function nextTier(ctx: EngineContext, token: TokenRecord, score: number | null, category: string, rec: { liquidityUsd: number | null; volumeH1Usd: number | null }): Tier {
+function nextTier(ctx: EngineContext, token: TokenRecord, score: number | null, category: string, rec: { liquidityUsd: number | null; volumeH1Usd: number | null }, earlyMomentum: number | null = null, gated = false): Tier {
   const p = ctx.cfg.tiers.promote;
   let t: Tier = token.tier;
   // Rejected/extreme tokens are re-checked cheaply but never below tier 2: authorities must stay verifiable (they can be revoked later).
   if (category === "REJECTED" || category === "EXTREME_RISK") return 2;
   if (t === 1 && (rec.liquidityUsd ?? 0) >= p.to_2_min_liquidity_usd && (rec.volumeH1Usd ?? 0) >= p.to_2_min_volume_h1_usd) t = 2;
-  if (t === 2 && score !== null && score >= p.to_3_min_score) t = 3;
+  if (t === 2 && ((score !== null && score >= p.to_3_min_score) || (!gated && earlyMomentum !== null && earlyMomentum >= p.to_3_min_early_momentum))) t = 3;
   if (t === 3 && score !== null && score >= p.to_4_min_score) t = 4;
   // demotion after N cycles below the threshold of the current tier
   if (score !== null) {
-    const below = (t === 4 && score < p.to_4_min_score - 5) || (t === 3 && score < p.to_3_min_score - 5);
+    const momentumHolds = earlyMomentum !== null && earlyMomentum >= p.to_3_min_early_momentum - 10;
+    const below = (t === 4 && score < p.to_4_min_score - 5) || (t === 3 && score < p.to_3_min_score - 5 && !momentumHolds);
     if (below) {
       token.cyclesBelowTier++;
       if (token.cyclesBelowTier >= ctx.cfg.tiers.demote_after_cycles_below) {

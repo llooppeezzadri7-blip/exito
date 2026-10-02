@@ -35,6 +35,7 @@ export const configSchema = z
         to_2_min_liquidity_usd: z.number(),
         to_2_min_volume_h1_usd: z.number(),
         to_3_min_score: z.number(),
+        to_3_min_early_momentum: z.number(),
         to_4_min_score: z.number(),
       }),
       demote_after_cycles_below: z.number().int().positive(),
