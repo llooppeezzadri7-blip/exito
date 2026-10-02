@@ -101,7 +101,8 @@ export class MemoryStore implements Store {
       out.total!++;
       out[t.status] = (out[t.status] ?? 0) + 1;
       out[`tier${t.tier}`] = (out[`tier${t.tier}`] ?? 0) + 1;
-      if (t.category) out[t.category] = (out[t.category] ?? 0) + 1;
+      // status keys (NEW/MONITORED/REJECTED/ARCHIVED) win over the same-named category
+      if (t.category && t.category !== "REJECTED") out[t.category] = (out[t.category] ?? 0) + 1;
     }
     return out;
   }

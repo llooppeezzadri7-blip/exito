@@ -116,7 +116,7 @@ export class PostgresStore implements Store {
       out.total! += Number(r.n);
     }
     for (const r of await this.q<{ tier: number; n: string }>("SELECT tier, count(*)::text n FROM tokens WHERE status IN ('NEW','MONITORED') GROUP BY tier")) out[`tier${r.tier}`] = Number(r.n);
-    for (const r of await this.q<{ category: string; n: string }>("SELECT category, count(*)::text n FROM tokens WHERE category IS NOT NULL GROUP BY category")) out[r.category] = Number(r.n);
+    for (const r of await this.q<{ category: string; n: string }>("SELECT category, count(*)::text n FROM tokens WHERE category IS NOT NULL AND category <> 'REJECTED' GROUP BY category")) out[r.category] = Number(r.n);
     return out;
   }
 

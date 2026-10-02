@@ -37,6 +37,9 @@ export interface MarketSnapshot {
   websites: string[];
   socials: { type: string; url: string }[];
   imageUrl: string | null;
+  /** Symbol/name of the token itself (base side of the primary pair), never the quote asset. */
+  baseSymbol: string | null;
+  baseName: string | null;
   source: string;
   observedAt: string;
 }

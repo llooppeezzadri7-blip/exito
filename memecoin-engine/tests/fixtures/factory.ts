@@ -6,14 +6,15 @@ import type { EngineConfig } from "../../src/config/schema.js";
 
 export const cfg: EngineConfig = loadDefaultConfig();
 export const MINT = "So11111111111111111111111111111111111111112";
-export const T0 = new Date("2026-09-29T10:00:00.000Z");
+/** Anchor all fixtures to the current minute so tests never depend on the calendar date. */
+export const T0 = new Date(Math.floor(Date.now() / 60_000) * 60_000);
 export const at = (minutes: number): string => new Date(T0.getTime() + minutes * 60_000).toISOString();
 
 export function makeMarket(o: Partial<{ price: number; mc: number; liq: number; v5: number; v1: number; v6: number; v24: number; b1: number; s1: number; b5: number; s5: number; pc5: number; pc1: number; pc24: number; created: string; observedAt: string }> = {}): MarketSnapshot {
   const obs = o.observedAt ?? at(0);
   const price = o.price ?? 0.001;
   const pair = { pairAddress: "PAIR111111111111111111111111111111111111111", dexId: "raydium", quoteSymbol: "SOL", priceUsd: price, liquidityUsd: o.liq ?? 50_000, volumeUsd: { m5: o.v5 ?? 2000, h1: o.v1 ?? 20_000, h6: o.v6 ?? 60_000, h24: o.v24 ?? 100_000 }, txns: { m5: { buys: o.b5 ?? 20, sells: o.s5 ?? 10 }, h1: { buys: o.b1 ?? 200, sells: o.s1 ?? 120 }, h6: null, h24: null }, priceChangePct: { m5: o.pc5 ?? 2, h1: o.pc1 ?? 15, h6: null, h24: o.pc24 ?? 40 }, pairCreatedAt: o.created ?? at(-60), source: "test-dex" };
-  return { priceUsd: dp(price, "test-dex", "HIGH", obs), marketCapUsd: dp(o.mc ?? 300_000, "test-dex", "MEDIUM", obs), fdvUsd: dp(o.mc ?? 300_000, "test-dex", "MEDIUM", obs), liquidityUsd: dp(pair.liquidityUsd, "test-dex", "HIGH", obs), volumeUsd: pair.volumeUsd, txns: pair.txns, priceChangePct: pair.priceChangePct, pairCreatedAt: pair.pairCreatedAt, primaryPair: pair, pairs: [pair], boostsActive: null, websites: ["https://example.com"], socials: [{ type: "twitter", url: "https://x.com/example" }], imageUrl: null, source: "test-dex", observedAt: obs };
+  return { priceUsd: dp(price, "test-dex", "HIGH", obs), marketCapUsd: dp(o.mc ?? 300_000, "test-dex", "MEDIUM", obs), fdvUsd: dp(o.mc ?? 300_000, "test-dex", "MEDIUM", obs), liquidityUsd: dp(pair.liquidityUsd, "test-dex", "HIGH", obs), volumeUsd: pair.volumeUsd, txns: pair.txns, priceChangePct: pair.priceChangePct, pairCreatedAt: pair.pairCreatedAt, primaryPair: pair, pairs: [pair], boostsActive: null, websites: ["https://example.com"], socials: [{ type: "twitter", url: "https://x.com/example" }], imageUrl: null, baseSymbol: "TEST", baseName: "Test Token", source: "test-dex", observedAt: obs };
 }
 
 export function makeSecurity(o: Partial<{ mint: boolean | null; freeze: boolean | null; program: string; ext: string[]; permanentDelegate: boolean; transferHook: boolean; feeBps: number; mutable: boolean }> = {}): SecurityInfo {

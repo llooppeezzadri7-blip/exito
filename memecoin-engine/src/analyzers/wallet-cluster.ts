@@ -136,7 +136,12 @@ export function detectWalletClusters(input: ClusterInput): { clusters: WalletClu
   metrics.cluster_max_risk = clusters.length ? maxRisk : 0;
   metrics.clustered_supply_pct = round(clusteredSupply, 2);
   metrics.wallets_profiled = input.wallets.length;
-  // wallet quality score: 100 = no clusters, decreases with risk and clustered supply
+  // wallet quality score: 100 = no clusters, decreases with risk and clustered supply.
+  // Without wallet profiles AND without a usable tape there is no evidence either way: UNKNOWN, not "clean".
+  if (input.wallets.length === 0 && input.trades.length < 10 && clusters.length === 0) {
+    flags.push({ code: "INSUFFICIENT_DATA", severity: "INFO", message: "no wallet profiles or trade tape to check for clusters (UNKNOWN)" });
+    return { clusters, result: { analyzer: "wallet-cluster", score: null, confidence: "UNKNOWN", flags, evidence, metrics, computedAt: now.toISOString() } };
+  }
   const score = clamp(round(100 - maxRisk * 0.6 - Math.min(40, clusteredSupply * 1.2), 1), 0, 100);
   const confidence: AnalyzerResult["confidence"] = input.wallets.length >= 5 && input.trades.length >= 10 ? "MEDIUM" : "LOW";
   return { clusters, result: { analyzer: "wallet-cluster", score, confidence, flags, evidence, metrics, computedAt: now.toISOString() } };

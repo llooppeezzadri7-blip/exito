@@ -13,7 +13,7 @@ export const NARRATIVES: { key: string; label: string; keywords: string[] }[] = 
   { key: "events", label: "Current events", keywords: ["olympic", "worldcup", "world cup", "superbowl", "halloween", "christmas", "xmas", "newyear", "eclipse", "fed", "rate cut"] },
   { key: "finance-meme", label: "Finance memes", keywords: ["pump", "moon", "rocket", "lambo", "diamond", "hands", "ape", "degen", "gamble", "casino", "bonk", "wif", "hat"] },
   { key: "tiktok", label: "TikTok trends", keywords: ["tiktok", "viral", "trend", "dance", "challenge", "chill guy", "moodeng", "mood"] },
-  { key: "tech", label: "Tech / crypto-native", keywords: ["quantum", "depin", "rwa", "layer", "zk", "solana", "sol", "eth", "btc", "bitcoin", "satoshi", "vitalik", "toly"] },
+  { key: "tech", label: "Tech / crypto-native", keywords: ["quantum", "depin", "rwa", "zk", "btc", "bitcoin", "satoshi", "vitalik", "toly"] },
 ];
 
 export function classifyNarrative(text: string): { key: string; label: string; matched: string[] }[] {
@@ -41,14 +41,18 @@ export function analyzeNarrative(token: { symbol: string | null; name: string | 
     return { analyzer: "narrative", score: null, confidence: "UNKNOWN", flags: [{ code: "NO_NARRATIVE", severity: "INFO", message: "no recognizable narrative" }], evidence, metrics: out, computedAt: now, saturation: null, narratives: [] };
   }
   const byKey = new Map(records.map((r) => [r.key, r]));
-  let momentum = 50;
-  let freshness = 50;
+  const withStats = matches.map((m) => byKey.get(m.key)).filter((r): r is NarrativeRecord => !!r && r.momentum !== null);
+  if (!withStats.length) {
+    return { analyzer: "narrative", score: null, confidence: "UNKNOWN", flags: [{ code: "NARRATIVE_STATS_MISSING", severity: "INFO", message: `matches ${matches.map((m) => m.label).join(", ")} but no narrative statistics yet` }], evidence, metrics: out, computedAt: now, saturation: null, narratives: matches.map((m) => m.key) };
+  }
+  let momentum = 0;
+  let freshness = 100;
   let saturation = 0;
   for (const m of matches) {
     const rec = byKey.get(m.key);
-    if (!rec) continue;
-    if (rec.momentum !== null) momentum = Math.max(momentum, rec.momentum);
-    if (rec.freshness !== null) freshness = Math.min(freshness === 50 ? 100 : freshness, rec.freshness);
+    if (!rec || rec.momentum === null) continue;
+    momentum = Math.max(momentum, rec.momentum);
+    if (rec.freshness !== null) freshness = Math.min(freshness, rec.freshness);
     if (rec.saturation !== null) saturation = Math.max(saturation, rec.saturation);
     evidence.push({ kind: "INFERENCE", statement: `narrative "${rec.label}": ${rec.tokensCount} tokens / 24h, momentum ${rec.momentum ?? "?"}, saturation ${rec.saturation === null ? "?" : Math.round(rec.saturation * 100) + "%"}`, source: "narrative-engine", observedAt: rec.updatedAt, data: { matched: m.matched } });
   }

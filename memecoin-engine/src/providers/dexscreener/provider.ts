@@ -196,6 +196,8 @@ export function toMarketSnapshot(pairs: RawPair[], observedAt = new Date().toISO
     websites,
     socials,
     imageUrl: primaryRaw.info?.imageUrl ?? null,
+    baseSymbol: primaryRaw.baseToken.symbol ?? null,
+    baseName: primaryRaw.baseToken.name ?? null,
     source: SRC,
     observedAt,
   };

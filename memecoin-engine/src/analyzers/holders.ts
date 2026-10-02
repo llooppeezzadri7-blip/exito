@@ -73,7 +73,9 @@ export function analyzeHolders(snap: TokenSnapshot, metrics: TokenMetrics, cfg: 
 
   // Whale behaviour from trades (if any): net flow of whale wallets in the last hour
   const whaleAddrs = new Set(st.whales.flatMap((w) => [w.address, w.owner].filter((x): x is string => !!x)));
-  const hourAgo = Date.now() - 3_600_000;
+  // Reference time = when the snapshot was observed (deterministic replays), not the wall clock.
+  const refMs = new Date(snap.observedAt).getTime() || Date.now();
+  const hourAgo = refMs - 3_600_000;
   let whaleNetUsd = 0;
   let whaleSells = 0;
   let whaleBuys = 0;
@@ -101,6 +103,6 @@ export function analyzeHolders(snap: TokenSnapshot, metrics: TokenMetrics, cfg: 
   if (minHolders) flags.push({ code: "TOO_FEW_HOLDERS", severity: "HIGH", message: `only ${total} holders` });
 
   const score = clamp(round(conc * 0.5 + behaviour * 0.2 + growth * 0.3, 1), 0, 100);
-  Object.assign(out, { top10_pct: st.top10Pct, top20_pct: st.top20Pct, largest_wallet_pct: st.largestNonLpPct, lp_pct: st.lpPct, holders_gini: st.gini, whale_count: st.whales.length, whale_net_usd_1h: whaleBuys + whaleSells ? round(whaleNetUsd, 0) : null, holders_total: total, holder_score: score, holder_growth_component: growth });
+  Object.assign(out, { top10_pct: st.top10Pct, top20_pct: st.top20Pct, largest_wallet_pct: st.largestNonLpPct, lp_pct: st.lpPct, holders_gini: st.gini, whale_count: st.whales.length, whale_net_usd_1h: whaleBuys + whaleSells ? round(whaleNetUsd, 0) : null, holders_total: total, holder_score: score, holder_growth_component: g === null ? null : growth });
   return { analyzer: "holders", score, confidence: h?.top?.length ? "HIGH" : "MEDIUM", flags, evidence, metrics: out, computedAt: now };
 }

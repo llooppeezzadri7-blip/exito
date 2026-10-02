@@ -39,7 +39,7 @@ describe("narrative engine", () => {
   it("classifies tokens into narratives by keywords", () => {
     expect(classifyNarrative("TRUMP MAGA coin").map((n) => n.key)).toContain("politics");
     expect(classifyNarrative("Pepe the frog").map((n) => n.key)).toContain("animals");
-    expect(classifyNarrative("AI agent for solana").map((n) => n.key)).toEqual(expect.arrayContaining(["ai", "tech"]));
+    expect(classifyNarrative("AI agent for solana").map((n) => n.key)).toEqual(["ai"]); // chain names are too generic to be a narrative
     expect(classifyNarrative("xyzabc")).toHaveLength(0);
   });
   it("penalizes saturated narratives", () => {

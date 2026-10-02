@@ -212,6 +212,7 @@ export async function analyzeToken(ctx: EngineContext, token: TokenRecord, opts:
   const archived = ageH > cfg.tiers[tierAfter].ttl_hours && tierAfter <= 2;
   const patch: Partial<TokenRecord> = {
     symbol: snapshot.symbol ?? token.symbol,
+    name: snapshot.name ?? token.name,
     createdAt: snapshot.createdAt ?? token.createdAt,
     pairAddress: snapshot.market?.primaryPair?.pairAddress ?? token.pairAddress,
     deployer: deployerAddr ?? token.deployer,

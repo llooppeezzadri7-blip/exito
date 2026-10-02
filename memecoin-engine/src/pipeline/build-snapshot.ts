@@ -189,8 +189,8 @@ export async function buildSnapshot(ctx: EngineContext, token: TokenRecord, tier
   const snapshot: TokenSnapshot = {
     chain,
     mint,
-    symbol: token.symbol ?? market?.primaryPair?.quoteSymbol ?? null,
-    name: token.name,
+    symbol: market?.baseSymbol ?? token.symbol ?? null,
+    name: market?.baseName ?? token.name ?? null,
     observedAt,
     createdAt,
     market,

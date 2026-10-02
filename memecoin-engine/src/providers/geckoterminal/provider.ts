@@ -238,6 +238,8 @@ export function poolsToMarket(pools: RawPool[], observedAt = new Date().toISOStr
     websites: [],
     socials: [],
     imageUrl: null,
+    baseSymbol: primaryRaw.attributes.name?.split("/")[0]?.trim() ?? null,
+    baseName: null,
     source: SRC,
     observedAt,
   };
