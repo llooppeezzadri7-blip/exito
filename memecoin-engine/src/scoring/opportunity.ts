@@ -74,7 +74,8 @@ export function scoreOpportunity(input: ScoreInput, cfg: EngineConfig): ScoreOut
   // ---- positives ----
   add("early_momentum", sc("early-momentum"), w.early_momentum, `early momentum ${sc("early-momentum") ?? "?"}/100`, true);
   const hgc = r("holders")?.metrics.holder_growth_component ?? null;
-  add("holder_growth", hgc, w.holder_growth, `holder growth ${fmt(m("holders_growth_15m"))}% / 15m`, true);
+  const hgWin = m("holders_growth_15m") !== null ? "15m" : m("holders_growth_1h") !== null ? "1h" : "5m";
+  add("holder_growth", hgc, w.holder_growth, `holder growth ${fmt(m(`holders_growth_${hgWin}`))}% / ${hgWin}`, true);
   add("liquidity", sc("liquidity"), w.liquidity, `liquidity score ${sc("liquidity") ?? "?"}`, true);
   add("social_momentum", sc("social"), w.social_momentum, `social momentum ${sc("social") ?? "?"}`, true);
   add("narrative", sc("narrative"), w.narrative, `narrative momentum ${sc("narrative") ?? "?"}`);
