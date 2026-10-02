@@ -66,7 +66,7 @@ describe("LP lock is weighted by pool liquidity (live www case, 2026-10-02)", ()
       { marketType: "pump_fun_amm", lp: { lpLockedPct: 100, baseUSD: 115_000, quoteUSD: 115_000 } },
       { marketType: "meteoraDlmm", lp: { lpLockedPct: 0, baseUSD: 43_500, quoteUSD: 43_500 } },
     ];
-    expect(weightedLpLocked(markets)).toBeCloseTo(33.7, 0);
+    expect(weightedLpLocked(markets)).toBeCloseTo(31.7, 1); // 230k locked of 725k total
     const r = mapRugcheckReport({ markets } as any);
     expect(r.lpLockedPct.value!).toBeLessThan(50);
   });
