@@ -56,3 +56,23 @@ describe("tier promotion without deep data", () => {
     expect(t.tier).toBeGreaterThanOrEqual(3);
   });
 });
+
+import { weightedLpLocked, mapRugcheckReport } from "../../src/providers/rugcheck/provider.js";
+
+describe("LP lock is weighted by pool liquidity (live www case, 2026-10-02)", () => {
+  it("a small burned pool does not hide a large unlocked pool", () => {
+    const markets = [
+      { marketType: "meteoraDlmm", lp: { lpLockedPct: 0, baseUSD: 204_000, quoteUSD: 204_000 } },
+      { marketType: "pump_fun_amm", lp: { lpLockedPct: 100, baseUSD: 115_000, quoteUSD: 115_000 } },
+      { marketType: "meteoraDlmm", lp: { lpLockedPct: 0, baseUSD: 43_500, quoteUSD: 43_500 } },
+    ];
+    expect(weightedLpLocked(markets)).toBeCloseTo(33.7, 0);
+    const r = mapRugcheckReport({ markets } as any);
+    expect(r.lpLockedPct.value!).toBeLessThan(50);
+  });
+  it("single burned pool stays 100%; unknown stays null", () => {
+    expect(weightedLpLocked([{ lp: { lpLockedPct: 100, baseUSD: 32_000, quoteUSD: 32_000 } }])).toBe(100);
+    expect(weightedLpLocked([{ lp: null }])).toBeNull();
+    expect(weightedLpLocked([{ lp: { lpLockedPct: 100 } }, { lp: { lpLockedPct: 0 } }])).toBe(0);
+  });
+});

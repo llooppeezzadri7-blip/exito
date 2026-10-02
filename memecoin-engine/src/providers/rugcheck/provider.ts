@@ -33,7 +33,7 @@ const reportSchema = z
     totalLPProviders: numish,
     totalMarketLiquidity: numish,
     graphInsidersDetected: numish,
-    markets: z.array(z.object({ pubkey: z.string().optional(), marketType: z.string().optional(), lp: z.object({ lpLockedPct: numish, lpTotalSupply: numish, lpLocked: numish }).passthrough().nullable().optional() }).passthrough()).nullable().optional(),
+    markets: z.array(z.object({ pubkey: z.string().optional(), marketType: z.string().optional(), lp: z.object({ lpLockedPct: numish, lpTotalSupply: numish, lpLocked: numish, baseUSD: numish, quoteUSD: numish }).passthrough().nullable().optional() }).passthrough()).nullable().optional(),
     knownAccounts: z.record(z.string(), z.object({ name: z.string().optional(), type: z.string().optional() }).passthrough()).nullable().optional(),
   })
   .passthrough();
@@ -101,11 +101,29 @@ export class RugCheckProvider implements SecurityProvider {
   }
 }
 
+/**
+ * Share of total pool liquidity whose LP is locked/burned, weighted by each pool's USD liquidity.
+ * (A token can have a small burned pool and a large unlocked one: max() would report "100% locked".)
+ * Falls back to the unweighted minimum when no pool reports USD values. null when no pool reports a lock %.
+ */
+export function weightedLpLocked(markets: { lp?: { lpLockedPct?: number | null; baseUSD?: number | null; quoteUSD?: number | null } | null }[]): number | null {
+  const withPct = markets.filter((m) => typeof m.lp?.lpLockedPct === "number");
+  if (!withPct.length) return null;
+  let total = 0;
+  let locked = 0;
+  for (const m of withPct) {
+    const usd = (m.lp?.baseUSD ?? 0) + (m.lp?.quoteUSD ?? 0);
+    total += usd;
+    locked += usd * (m.lp!.lpLockedPct! / 100);
+  }
+  if (total > 0) return Math.round((locked / total) * 1000) / 10;
+  return Math.min(...withPct.map((m) => m.lp!.lpLockedPct!));
+}
+
 export function mapRugcheckReport(r: RawRugcheckReport, observedAt = new Date().toISOString()): SecurityReport {
   const risks = (r.risks ?? []).map((x) => ({ name: x.name, level: x.level ?? "unknown", description: x.description ?? x.value ?? "", score: x.score }));
   const normalised = r.score_normalised ?? (r.score !== null && r.score !== undefined ? clamp(r.score / 100, 0, 100) : null);
-  const lpPcts = (r.markets ?? []).map((m) => m.lp?.lpLockedPct).filter((x): x is number => typeof x === "number");
-  const lpLocked = lpPcts.length ? Math.max(...lpPcts) : null;
+  const lpLocked = weightedLpLocked(r.markets ?? []);
   const known = r.knownAccounts ?? {};
   const topHolders: HolderInfo[] = (r.topHolders ?? []).map((h) => {
     const k = known[h.address] ?? (h.owner ? known[h.owner] : undefined);
